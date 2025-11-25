@@ -5,6 +5,9 @@ EXAM-MASTER - A Flask-based Online Quiz System
 This is the main entry point of the application.
 It initializes the Flask app, loads configuration, sets up the database,
 and registers the blueprints that handle the actual route logic.
+This is the main entry point of the application.
+It initializes the Flask app, loads configuration, sets up the database,
+and registers the blueprints that handle the actual route logic.
 
 Author: ShayneChen (xinyu-c@outlook.com)
 License: MIT
@@ -30,6 +33,13 @@ app.config.from_object(Config)
 # 初始化数据库
 # 创建必要的表并加载初始 CSV 数据（如果表为空）
 # 注意：在应用启动前执行一次即可
+
+# 加载配置 (从 config.py 中读取 Config 类)
+app.config.from_object(Config)
+
+# 初始化数据库
+# 创建必要的表并加载初始 CSV 数据（如果表为空）
+# 注意：在应用启动前执行一次即可
 init_db()
 
 # 注册蓝图 (Blueprints)
@@ -42,6 +52,9 @@ app.register_blueprint(user_bp)
 app.register_blueprint(load_data_bp)
 
 if __name__ == '__main__':
+    # 启动应用
+    # host="0.0.0.0" 允许外部访问
+    # debug=True 开启调试模式
     # 启动应用
     # host="0.0.0.0" 允许外部访问
     # debug=True 开启调试模式
