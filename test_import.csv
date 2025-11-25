@@ -1,0 +1,6 @@
+id,stem,A,B,C,D,answer,qtype,difficulty,category
+1001,什么是Python的主要特点？,解释型语言,面向对象,动态类型,以上都是,D,单选题,简单,编程基础
+1002,Python中如何定义一个函数？,function my_func():,def my_func():,func my_func():,define my_func():,B,单选题,简单,编程基础
+1003,Python的列表是可变的吗？,是,否,,,A,判断题,简单,数据结构
+1004,Python中用于条件判断的关键字是？,if,else,elif,以上都是,D,单选题,简单,控制结构
+1005,Python的标准输出函数是？,print(),output(),console.log(),display(),A,单选题,简单,基础语法

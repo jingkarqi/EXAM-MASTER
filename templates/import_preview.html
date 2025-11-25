@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}预览导入 - ExamMaster{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">
+        <i class="fas fa-eye"></i>
+        预览导入
+    </h1>
+    <p class="page-subtitle">确认题目信息，准备导入</p>
+</div>
+
+<div class="preview-container">
+    <!-- 文件信息 -->
+    <div class="file-summary">
+        <div class="file-summary-header">
+            <i class="fas fa-file-alt"></i>
+            <h3>{{ filename }}</h3>
+        </div>
+        <div class="file-summary-stats">
+            <div class="stat-item">
+                <span class="stat-label">有效题目：</span>
+                <span class="stat-value text-success">{{ questions|length }}</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">错误题目：</span>
+                <span class="stat-value text-danger">{{ errors|length }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 错误信息 -->
+    {% if errors %}
+    <div class="error-section">
+        <div class="section-header">
+            <i class="fas fa-exclamation-triangle text-warning"></i>
+            <h3>格式错误</h3>
+        </div>
+        <div class="error-list">
+            {% for error in errors %}
+            <div class="error-item">
+                <div class="error-header">
+                    <span class="error-position">第 {{ error.row }} 行</span>
+                    {% if error.id != 'unknown' %}
+                    <span class="error-id">题号：{{ error.id }}</span>
+                    {% endif %}
+                </div>
+                <div class="error-details">
+                    {% for err_msg in error.errors %}
+                    <div class="error-message">
+                        <i class="fas fa-times-circle"></i>
+                        {{ err_msg }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="error-notice">
+            <i class="fas fa-info-circle"></i>
+            有错误的题目将不会被导入，请修正错误后重新上传。
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 题目预览 -->
+    {% if questions %}
+    <div class="preview-section">
+        <div class="section-header">
+            <i class="fas fa-check-circle text-success"></i>
+            <h3>有效题目预览</h3>
+        </div>
+
+        <div class="preview-controls">
+            <div class="preview-info">
+                显示前 10 道题目，共 {{ questions|length }} 道
+            </div>
+            <div class="preview-actions">
+                <button type="button" class="btn btn-outline-secondary" onclick="toggleAllQuestions()">
+                    <i class="fas fa-expand-alt"></i>
+                    展开/收起全部
+                </button>
+            </div>
+        </div>
+
+        <div class="questions-preview">
+            {% for question in questions[:10] %}
+            <div class="question-preview-card">
+                <div class="question-header" onclick="toggleQuestion(this)">
+                    <div class="question-info">
+                        <span class="question-id">#{{ question.id }}</span>
+                        <span class="question-type">{{ question.qtype }}</span>
+                        <span class="question-difficulty">{{ question.difficulty }}</span>
+                    </div>
+                    <div class="question-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                </div>
+                <div class="question-content">
+                    <div class="question-stem">
+                        <strong>题干：</strong>{{ question.stem }}
+                    </div>
+                    <div class="question-options">
+                        {% for opt in ['A', 'B', 'C', 'D', 'E'] %}
+                        {% if question[opt] %}
+                        <div class="question-option">
+                            <span class="option-label">{{ opt }}：</span>
+                            <span class="option-text">{{ question[opt] }}</span>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                    <div class="question-answer">
+                        <strong>答案：</strong>
+                        <span class="answer-text">{{ question.answer }}</span>
+                    </div>
+                    {% if question.category %}
+                    <div class="question-category">
+                        <strong>类别：</strong>{{ question.category }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if questions|length > 10 %}
+        <div class="preview-more">
+            <i class="fas fa-info-circle"></i>
+            还有 {{ questions|length - 10 }} 道题目未显示
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 操作按钮 -->
+    <div class="action-buttons">
+        <form method="post" action="{{ url_for('load_data.cancel') }}" style="display: inline;">
+            <button type="submit" class="btn btn-secondary">
+                <i class="fas fa-times"></i>
+                取消导入
+            </button>
+        </form>
+
+        {% if questions %}
+        <form method="post" action="{{ url_for('load_data.preview') }}" style="display: inline;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check"></i>
+                确认导入 {{ questions|length }} 道题目
+            </button>
+        </form>
+        {% else %}
+        <button type="button" class="btn btn-primary" disabled>
+            <i class="fas fa-check"></i>
+            没有可导入的题目
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleQuestion(header) {
+    const card = header.parentElement;
+    const content = card.querySelector('.question-content');
+    const toggleIcon = header.querySelector('.question-toggle i');
+
+    if (content.style.display === 'none' || !content.style.display) {
+        content.style.display = 'block';
+        toggleIcon.classList.remove('fa-chevron-down');
+        toggleIcon.classList.add('fa-chevron-up');
+    } else {
+        content.style.display = 'none';
+        toggleIcon.classList.remove('fa-chevron-up');
+        toggleIcon.classList.add('fa-chevron-down');
+    }
+}
+
+function toggleAllQuestions() {
+    const cards = document.querySelectorAll('.question-preview-card');
+    const firstCard = cards[0];
+    const firstContent = firstCard.querySelector('.question-content');
+    const isExpanded = firstContent.style.display === 'block' || !firstContent.style.display;
+
+    cards.forEach(card => {
+        const content = card.querySelector('.question-content');
+        const toggleIcon = card.querySelector('.question-toggle i');
+
+        if (isExpanded) {
+            content.style.display = 'none';
+            toggleIcon.classList.remove('fa-chevron-up');
+            toggleIcon.classList.add('fa-chevron-down');
+        } else {
+            content.style.display = 'block';
+            toggleIcon.classList.remove('fa-chevron-down');
+            toggleIcon.classList.add('fa-chevron-up');
+        }
+    });
+}
+
+// 初始化：默认展开第一道题目
+document.addEventListener('DOMContentLoaded', function() {
+    const firstCard = document.querySelector('.question-preview-card');
+    if (firstCard) {
+        const header = firstCard.querySelector('.question-header');
+        toggleQuestion(header);
+    }
+});
+</script>
+{% endblock %}

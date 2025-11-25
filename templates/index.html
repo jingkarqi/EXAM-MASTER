@@ -147,6 +147,18 @@
                 <a href="{{ url_for('user.show_history') }}" class="btn btn-sm btn-outline-primary">答题历史</a>
             </div>
         </div>
+
+        <div class="card feature-card">
+            <div class="feature-icon">
+                <i class="fas fa-upload"></i>
+            </div>
+            <h3 class="card-title">导入题库</h3>
+            <p class="card-text">上传自定义题库文件（CSV/TXT），支持拖拽上传和实时预览</p>
+            <div class="mt-auto">
+                <a href="{{ url_for('load_data.upload') }}" class="btn btn-sm btn-outline-primary">开始导入</a>
+            </div>
+        </div>
+
     </div>
 </div>
 

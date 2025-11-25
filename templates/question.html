@@ -72,32 +72,86 @@
     
     <!-- 选项表单 -->
     <form method="post" action="{{ url_for('quiz.show_question', qid=question.id) }}" class="question-form">
-        <ul class="options-list">
-            {% for opt_key, opt_val in question.options.items() %}
-                {% set checked = user_answer is defined and (opt_key in user_answer) %}
-                <li class="option-item">
-                    <label class="option-label {% if checked and result_msg %}{% if opt_key in question.answer %}option-correct{% else %}option-incorrect{% endif %}{% endif %}">
-                        {% if question.type == '单选题' %}
-                            <input type="radio" 
-                                   class="option-checkbox" 
-                                   name="answer"
-                                   value="{{ opt_key }}"
-                                   {% if checked %}checked{% endif %}
-                                   {% if result_msg %}disabled{% endif %}
-                                   required>
+        {% if question.question_type == '判断题' %}
+            <!-- 判断题选项 -->
+            <div class="judgment-options">
+                {% set checked_true = user_answer is defined and user_answer == '正确' %}
+                {% set checked_false = user_answer is defined and user_answer == '错误' %}
+
+                <label class="option-label {% if checked_true and result_msg %}{% if question.answer == '正确' %}option-correct{% else %}option-incorrect{% endif %}{% endif %}">
+                    <input type="radio"
+                           class="option-checkbox"
+                           name="answer"
+                           value="正确"
+                           {% if checked_true %}checked{% endif %}
+                           {% if result_msg %}disabled{% endif %}
+                           required>
+                    <span class="option-text">正确</span>
+                </label>
+
+                <label class="option-label {% if checked_false and result_msg %}{% if question.answer == '错误' %}option-correct{% else %}option-incorrect{% endif %}{% endif %}">
+                    <input type="radio"
+                           class="option-checkbox"
+                           name="answer"
+                           value="错误"
+                           {% if checked_false %}checked{% endif %}
+                           {% if result_msg %}disabled{% endif %}
+                           required>
+                    <span class="option-text">错误</span>
+                </label>
+            </div>
+        {% elif question.question_type == '填空题' %}
+            <!-- 填空题输入框 -->
+            <div class="fill-blank-input">
+                {% set user_answer_value = user_answer if user_answer is defined else '' %}
+                <input type="text"
+                       name="answer"
+                       class="form-control"
+                       placeholder="请输入答案"
+                       value="{{ user_answer_value }}"
+                       {% if result_msg %}disabled{% endif %}
+                       required>
+                {% if result_msg and user_answer_value %}
+                    <div class="answer-feedback mt-2">
+                        {% if '正确' in result_msg %}
+                            <span class="text-success"><i class="fas fa-check-circle"></i> 您的答案：{{ user_answer_value }}</span>
                         {% else %}
-                            <input type="checkbox" 
-                                   class="option-checkbox" 
-                                   name="answer"
-                                   value="{{ opt_key }}"
-                                   {% if checked %}checked{% endif %}
-                                   {% if result_msg %}disabled{% endif %}>
+                            <span class="text-danger"><i class="fas fa-times-circle"></i> 您的答案：{{ user_answer_value }}</span>
+                            <br>
+                            <span class="text-success"><i class="fas fa-check-circle"></i> 正确答案：{{ question.answer }}</span>
                         {% endif %}
-                        <span class="option-text"><strong>{{ opt_key }}.</strong> {{ opt_val }}</span>
-                    </label>
-                </li>
-            {% endfor %}
-        </ul>
+                    </div>
+                {% endif %}
+            </div>
+        {% else %}
+            <!-- 单选题和多选题选项 -->
+            <ul class="options-list">
+                {% for opt_key, opt_val in question.options.items() %}
+                    {% set checked = user_answer is defined and (opt_key in user_answer) %}
+                    <li class="option-item">
+                        <label class="option-label {% if checked and result_msg %}{% if opt_key in question.answer %}option-correct{% else %}option-incorrect{% endif %}{% endif %}">
+                            {% if question.type == '单选题' %}
+                                <input type="radio"
+                                       class="option-checkbox"
+                                       name="answer"
+                                       value="{{ opt_key }}"
+                                       {% if checked %}checked{% endif %}
+                                       {% if result_msg %}disabled{% endif %}
+                                       required>
+                            {% else %}
+                                <input type="checkbox"
+                                       class="option-checkbox"
+                                       name="answer"
+                                       value="{{ opt_key }}"
+                                       {% if checked %}checked{% endif %}
+                                       {% if result_msg %}disabled{% endif %}>
+                            {% endif %}
+                            <span class="option-text"><strong>{{ opt_key }}.</strong> {{ opt_val }}</span>
+                        </label>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% endif %}
         
         <!-- 底部操作按钮 -->
         <div class="question-actions">

@@ -1782,7 +1782,14 @@ function resetAdvancedFilter() {
         form.reset();
         // Set default values
         document.getElementById('advancedTypeAll').checked = true;
-        document.getElementById('categoryAll').checked = true;
+        // Reset difficulty checkboxes
+        document.querySelectorAll('input[name="difficulty"]').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        // Reset category checkboxes
+        document.querySelectorAll('input[name="category"]').forEach(checkbox => {
+            checkbox.checked = false;
+        });
         document.getElementById('advancedSearchInput').value = '';
     }
 }
@@ -1795,7 +1802,7 @@ function clearAllAdvancedFilters() {
 function applyAdvancedFilter() {
     const currentUrl = new URL(window.location);
     currentUrl.searchParams.delete('page'); // Reset to first page
-    
+
     // Get selected type
     const selectedType = document.querySelector('input[name="advancedType"]:checked');
     if (selectedType && selectedType.value !== 'all') {
@@ -1803,7 +1810,23 @@ function applyAdvancedFilter() {
     } else {
         currentUrl.searchParams.delete('type');
     }
-    
+
+    // Get selected difficulties (multi-select)
+    const selectedDifficulties = Array.from(document.querySelectorAll('input[name="difficulty"]:checked'))
+        .map(checkbox => checkbox.value);
+    currentUrl.searchParams.delete('difficulty');
+    selectedDifficulties.forEach(diff => {
+        currentUrl.searchParams.append('difficulty', diff);
+    });
+
+    // Get selected categories (multi-select)
+    const selectedCategories = Array.from(document.querySelectorAll('input[name="category"]:checked'))
+        .map(checkbox => checkbox.value);
+    currentUrl.searchParams.delete('category');
+    selectedCategories.forEach(cat => {
+        currentUrl.searchParams.append('category', cat);
+    });
+
     // Get search term
     const searchTerm = document.getElementById('advancedSearchInput').value.trim();
     if (searchTerm) {
@@ -1811,11 +1834,11 @@ function applyAdvancedFilter() {
     } else {
         currentUrl.searchParams.delete('search');
     }
-    
+
     // Close modal and navigate
     const modal = bootstrap.Modal.getInstance(document.getElementById('advancedFilterModal'));
     if (modal) modal.hide();
-    
+
     window.location.href = currentUrl.toString();
 }
 
@@ -1871,13 +1894,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const advancedModal = document.getElementById('advancedFilterModal');
     if (advancedModal) {
         advancedModal.addEventListener('show.bs.modal', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+
             // Set current type selection
-            const currentType = new URLSearchParams(window.location.search).get('type') || 'all';
+            const currentType = urlParams.get('type') || 'all';
             const typeRadio = document.querySelector(`input[name="advancedType"][value="${currentType}"]`);
             if (typeRadio) typeRadio.checked = true;
-            
+
+            // Set current difficulty selection (multi-select)
+            const currentDifficulties = urlParams.getAll('difficulty');
+            document.querySelectorAll('input[name="difficulty"]').forEach(checkbox => {
+                checkbox.checked = currentDifficulties.includes(checkbox.value);
+            });
+
+            // Set current category selection (multi-select)
+            const currentCategories = urlParams.getAll('category');
+            document.querySelectorAll('input[name="category"]').forEach(checkbox => {
+                checkbox.checked = currentCategories.includes(checkbox.value);
+            });
+
             // Set current search term
-            const currentSearch = new URLSearchParams(window.location.search).get('search') || '';
+            const currentSearch = urlParams.get('search') || '';
             const searchInput = document.getElementById('advancedSearchInput');
             if (searchInput) searchInput.value = currentSearch;
         });

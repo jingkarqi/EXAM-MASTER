@@ -7,6 +7,33 @@ from .auth import login_required, get_user_id
 
 bp = Blueprint('quiz', __name__)
 
+def validate_answer_by_type(question_type, user_answer, correct_answer):
+    """
+    根据题型验证用户答案
+
+    Args:
+        question_type (str): 题型（单选题、多选题、判断题、填空题）
+        user_answer (str): 用户答案
+        correct_answer (str): 正确答案
+
+    Returns:
+        int: 1表示正确，0表示错误
+    """
+    if question_type == "单选题":
+        return int(user_answer == correct_answer)
+    elif question_type == "多选题":
+        # 多选题需要排序后比较
+        return int("".join(sorted(user_answer)) == "".join(sorted(correct_answer)))
+    elif question_type == "判断题":
+        # 判断题直接比较文本
+        return int(user_answer == correct_answer)
+    elif question_type == "填空题":
+        # 填空题精确匹配，忽略前后空格和大小写
+        return int(user_answer.strip().lower() == correct_answer.strip().lower())
+    else:
+        # 默认使用单选题验证逻辑
+        return int(user_answer == correct_answer)
+
 # --- Random & Single Question ---
 
 @bp.route('/random', methods=['GET'])
@@ -53,8 +80,11 @@ def show_question(qid):
 
     if request.method == 'POST':
         user_answer = request.form.getlist('answer')
-        user_answer_str = "".join(sorted(user_answer))
-        correct = int(user_answer_str == "".join(sorted(q['answer'])))
+        user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
+
+        # 使用新的验证函数
+        question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
+        correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
 
         c.execute(
             'INSERT INTO history (user_id, question_id, user_answer, correct) VALUES (?,?,?,?)',
@@ -121,22 +151,36 @@ def browse_questions():
     page = request.args.get('page', 1, type=int)
     question_type = request.args.get('type', '')
     search_query = request.args.get('search', '')
+    difficulty_filters = request.args.getlist('difficulty')
+    category_filters = request.args.getlist('category')
     per_page = 20
-    
+
     conn = get_db()
     c = conn.cursor()
-    
+
     where_conditions = []
     params = []
-    
+
     if question_type and question_type != 'all':
         where_conditions.append('qtype = ?')
         params.append(question_type)
-    
+
     if search_query:
         where_conditions.append('(stem LIKE ? OR id LIKE ?)')
         params.extend(['%' + search_query + '%', '%' + search_query + '%'])
-    
+
+    # 难度筛选 - 多选支持
+    if difficulty_filters and 'all' not in difficulty_filters:
+        placeholders = ','.join(['?'] * len(difficulty_filters))
+        where_conditions.append(f'difficulty IN ({placeholders})')
+        params.extend(difficulty_filters)
+
+    # 分类筛选 - 多选支持
+    if category_filters and 'all' not in category_filters:
+        placeholders = ','.join(['?'] * len(category_filters))
+        where_conditions.append(f'category IN ({placeholders})')
+        params.extend(category_filters)
+
     where_clause = ' WHERE ' + ' AND '.join(where_conditions) if where_conditions else ''
     
     c.execute(f'SELECT COUNT(*) as total FROM questions{where_clause}', params)
@@ -188,6 +232,8 @@ def browse_questions():
                           has_next=has_next,
                           current_type=question_type,
                           current_search=search_query,
+                          current_difficulties=difficulty_filters,
+                          current_categories=category_filters,
                           available_types=available_types)
 
 @bp.route('/filter', methods=['GET', 'POST'])
@@ -293,8 +339,11 @@ def show_sequential_question(qid):
     
     if request.method == 'POST':
         user_answer = request.form.getlist('answer')
-        user_answer_str = "".join(sorted(user_answer))
-        correct = int(user_answer_str == "".join(sorted(q['answer'])))
+        user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
+
+        # 使用新的验证函数
+        question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
+        correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
         
         c.execute('INSERT INTO history (user_id, question_id, user_answer, correct) VALUES (?,?,?,?)',
                   (user_id, qid, user_answer_str, correct))
@@ -448,8 +497,11 @@ def submit_timed_mode():
         user_answer = request.form.getlist(f'answer_{qid}')
         q = fetch_question(qid)
         if not q: continue
-        user_answer_str = "".join(sorted(user_answer))
-        correct = 1 if user_answer_str == "".join(sorted(q['answer'])) else 0
+        user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
+
+        # 使用新的验证函数
+        question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
+        correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
         if correct: correct_count += 1
         c.execute('INSERT INTO history (user_id, question_id, user_answer, correct) VALUES (?,?,?,?)',
                   (user_id, qid, user_answer_str, correct))
@@ -547,8 +599,11 @@ def submit_exam():
         user_answer = request.form.getlist(f'answer_{qid}')
         q = fetch_question(qid)
         if not q: continue
-        user_answer_str = "".join(sorted(user_answer))
-        correct = 1 if user_answer_str == "".join(sorted(q['answer'])) else 0
+        user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
+
+        # 使用新的验证函数
+        question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
+        correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
         if correct: correct_count += 1
         
         c.execute('INSERT INTO history (user_id, question_id, user_answer, correct) VALUES (?,?,?,?)',
