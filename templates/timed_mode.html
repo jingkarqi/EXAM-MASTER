@@ -9,7 +9,7 @@
         <div>
             <i class="fas fa-stopwatch"></i> 定时模式
         </div>
-        <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
             <i class="fas fa-home"></i> 返回主页
         </a>
     </div>
@@ -19,7 +19,7 @@
         <div id="countdown" class="countdown-timer">{{ remaining }}秒</div>
     </div>
     
-    <form id="examForm" method="post" action="{{ url_for('submit_timed_mode') }}" class="mb-4">
+    <form id="examForm" method="post" action="{{ url_for('quiz.submit_timed_mode') }}" class="mb-4">
         {% for question in questions %}
         <div class="question-container mb-4">
             <div class="question-header">

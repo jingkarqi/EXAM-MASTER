@@ -9,7 +9,7 @@
         <div>
             <i class="fas fa-search"></i> 搜索题目
         </div>
-        <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
             <i class="fas fa-home"></i> 返回主页
         </a>
     </div>
@@ -30,7 +30,7 @@
             <ul class="mb-0">
                 {% for r in results %}
                     <li class="mb-2">
-                        <a href="{{ url_for('show_question', qid=r.id) }}" class="text-primary">
+                        <a href="{{ url_for('quiz.show_question', qid=r.id) }}" class="text-primary">
                             <span class="badge badge-primary">{{ r.id }}</span> {{ r.stem }}
                         </a>
                     </li>

@@ -7,7 +7,7 @@
     <h1 class="card-title mb-2"><i class="fas fa-chart-pie"></i> 学习统计分析</h1>
     <p class="text-muted">查看个人学习表现，发现优势与提升空间</p>
     <div class="text-right mt-2">
-        <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
             <i class="fas fa-home"></i> 返回主页
         </a>
     </div>
@@ -245,7 +245,7 @@
                             <span class="badge badge-danger">题 {{ q.question_id }}</span>
                             <span class="wrong-count">错误次数: {{ q.wrong_times }}</span>
                         </div>
-                        <a href="{{ url_for('show_question', qid=q.question_id) }}" class="btn btn-sm btn-outline-primary">
+                        <a href="{{ url_for('quiz.show_question', qid=q.question_id) }}" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-external-link-alt"></i> 查看题目
                         </a>
                     </div>

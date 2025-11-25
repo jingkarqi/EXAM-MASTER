@@ -22,16 +22,16 @@
                 {% endif %}
             </p>
             <div class="feature-buttons d-flex justify-content-center flex-wrap">
-                <a href="{{ url_for('sequential_start') }}" class="btn btn-primary main-action-btn">
+                <a href="{{ url_for('quiz.sequential_start') }}" class="btn btn-primary main-action-btn">
                     <i class="fas fa-list-ol"></i> 顺序答题{% if current_seq_qid %} (从第 {{ current_seq_qid }} 题开始){% endif %}
                 </a>
-                <a href="{{ url_for('random_question') }}" class="btn btn-success main-action-btn">
+                <a href="{{ url_for('quiz.random_question') }}" class="btn btn-success main-action-btn">
                     <i class="fas fa-random"></i> 随机练习
                 </a>
-                <a href="{{ url_for('wrong_questions') }}" class="btn btn-warning main-action-btn">
+                <a href="{{ url_for('user.wrong_questions') }}" class="btn btn-warning main-action-btn">
                     <i class="fas fa-times-circle"></i> 错题练习
                 </a>
-                <a href="{{ url_for('logout') }}" class="btn btn-danger main-action-btn">
+                <a href="{{ url_for('auth.logout') }}" class="btn btn-danger main-action-btn">
                     <i class="fas fa-sign-out-alt"></i> 退出
                 </a>
             </div>
@@ -99,7 +99,7 @@
             <h3 class="card-title">浏览题目</h3>
             <p class="card-text">查看所有题目列表，支持分页浏览，快速定位和查看题目详情。</p>
             <div class="mt-auto">
-                <a href="{{ url_for('browse_questions') }}" class="btn btn-sm btn-outline-primary">浏览所有题目</a>
+                <a href="{{ url_for('quiz.browse_questions') }}" class="btn btn-sm btn-outline-primary">浏览所有题目</a>
             </div>
         </div>
         
@@ -110,8 +110,8 @@
             <h3 class="card-title">搜索与筛选</h3>
             <p class="card-text">通过关键词搜索或按类别、难度筛选，轻松找到所需题目。</p>
             <div class="mt-auto">
-                <a href="{{ url_for('search') }}" class="btn btn-sm btn-outline-primary">搜索题目</a>
-                <a href="{{ url_for('filter_questions') }}" class="btn btn-sm btn-outline-primary">筛选题目</a>
+                <a href="{{ url_for('quiz.search') }}" class="btn btn-sm btn-outline-primary">搜索题目</a>
+                <a href="{{ url_for('quiz.filter_questions') }}" class="btn btn-sm btn-outline-primary">筛选题目</a>
             </div>
         </div>
         
@@ -122,7 +122,7 @@
             <h3 class="card-title">数据分析</h3>
             <p class="card-text">查看学习进度、正确率统计、难度分布等，有针对性地提升薄弱环节。</p>
             <div class="mt-auto">
-                <a href="{{ url_for('statistics') }}" class="btn btn-sm btn-outline-primary">查看统计</a>
+                <a href="{{ url_for('user.statistics') }}" class="btn btn-sm btn-outline-primary">查看统计</a>
             </div>
         </div>
         
@@ -133,7 +133,7 @@
             <h3 class="card-title">个性化学习</h3>
             <p class="card-text">收藏重要题目，添加个性化标记，制定专属学习计划。</p>
             <div class="mt-auto">
-                <a href="{{ url_for('show_favorites') }}" class="btn btn-sm btn-outline-primary">我的收藏</a>
+                <a href="{{ url_for('user.show_favorites') }}" class="btn btn-sm btn-outline-primary">我的收藏</a>
             </div>
         </div>
         
@@ -144,7 +144,7 @@
             <h3 class="card-title">学习历史</h3>
             <p class="card-text">查看完整答题记录，复习已做题目，跟踪学习进度。</p>
             <div class="mt-auto">
-                <a href="{{ url_for('show_history') }}" class="btn btn-sm btn-outline-primary">答题历史</a>
+                <a href="{{ url_for('user.show_history') }}" class="btn btn-sm btn-outline-primary">答题历史</a>
             </div>
         </div>
     </div>
@@ -154,7 +154,7 @@
     <div class="card">
         <h2 class="card-title"><i class="fas fa-graduation-cap"></i> 高级学习模式</h2>
         <div class="mode-options d-flex gap-3 flex-wrap mt-3">
-            <form method="post" action="{{ url_for('start_timed_mode') }}" class="mode-form">
+            <form method="post" action="{{ url_for('quiz.start_timed_mode') }}" class="mode-form">
                 <div class="mode-card">
                     <div class="mode-header">
                         <i class="fas fa-hourglass-half mode-icon"></i>
@@ -187,7 +187,7 @@
                 </div>
             </form>
             
-            <form method="post" action="{{ url_for('start_exam') }}" class="mode-form">
+            <form method="post" action="{{ url_for('quiz.start_exam') }}" class="mode-form">
                 <div class="mode-card">
                     <div class="mode-header">
                         <i class="fas fa-file-alt mode-icon"></i>

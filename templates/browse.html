@@ -10,7 +10,7 @@
             <!-- Title and Navigation -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div class="d-flex align-items-center">
-                    <a href="{{ url_for('index') }}" class="btn btn-outline-secondary btn-sm me-3">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary btn-sm me-3">
                         <i class="fas fa-arrow-left"></i> 返回首页
                     </a>
                     <h2 class="mb-0">
@@ -108,7 +108,7 @@
             <!-- Navigation Row -->
             <div class="row align-items-center mb-3">
                 <div class="col-auto">
-                    <a href="{{ url_for('index') }}" class="btn btn-mobile-back">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-mobile-back">
                         <i class="fas fa-arrow-left"></i>
                     </a>
                 </div>
@@ -162,7 +162,7 @@
             <div class="question-header d-flex justify-content-between align-items-start mb-3">
                 <div class="question-meta d-flex align-items-center flex-wrap">
                     <h5 class="question-title mb-0 me-3">
-                        <a href="{{ url_for('show_question', qid=question.id) }}" class="text-decoration-none">
+                        <a href="{{ url_for('quiz.show_question', qid=question.id) }}" class="text-decoration-none">
                             <i class="fas fa-hashtag text-primary"></i> 题目 {{ question.id }}
                         </a>
                     </h5>
@@ -182,20 +182,20 @@
                 
                 <div class="question-actions d-flex align-items-center">
                     {% if question.is_favorite %}
-                    <form method="post" action="{{ url_for('unfavorite_question', qid=question.id) }}" class="d-inline me-2">
+                    <form method="post" action="{{ url_for('user.unfavorite_question', qid=question.id) }}" class="d-inline me-2">
                         <button type="submit" class="btn btn-sm btn-outline-warning" title="取消收藏">
                             <i class="fas fa-star"></i>
                         </button>
                     </form>
                     {% else %}
-                    <form method="post" action="{{ url_for('favorite_question', qid=question.id) }}" class="d-inline me-2">
+                    <form method="post" action="{{ url_for('user.favorite_question', qid=question.id) }}" class="d-inline me-2">
                         <button type="submit" class="btn btn-sm btn-outline-secondary" title="收藏">
                             <i class="far fa-star"></i>
                         </button>
                     </form>
                     {% endif %}
                     
-                    <a href="{{ url_for('show_question', qid=question.id) }}" class="btn btn-sm btn-primary me-2" title="答题">
+                    <a href="{{ url_for('quiz.show_question', qid=question.id) }}" class="btn btn-sm btn-primary me-2" title="答题">
                         <i class="fas fa-play"></i>
                     </a>
                     
@@ -279,7 +279,7 @@
                 
                 <div class="mobile-actions">
                     <button class="mobile-action-btn mobile-play-btn" 
-                            onclick="event.stopPropagation(); location.href='{{ url_for('show_question', qid=question.id) }}'">
+                            onclick="event.stopPropagation(); location.href='{{ url_for('quiz.show_question', qid=question.id) }}'">
                         <i class="fas fa-play"></i>
                     </button>
                     <button class="mobile-action-btn mobile-expand-btn">
@@ -347,20 +347,20 @@
                 <!-- Actions -->
                 <div class="mobile-card-actions">
                     {% if question.is_favorite %}
-                    <form method="post" action="{{ url_for('unfavorite_question', qid=question.id) }}" class="mobile-action-form">
+                    <form method="post" action="{{ url_for('user.unfavorite_question', qid=question.id) }}" class="mobile-action-form">
                         <button type="submit" class="mobile-secondary-btn favorited" onclick="event.stopPropagation()">
                             <i class="fas fa-star"></i> 已收藏
                         </button>
                     </form>
                     {% else %}
-                    <form method="post" action="{{ url_for('favorite_question', qid=question.id) }}" class="mobile-action-form">
+                    <form method="post" action="{{ url_for('user.favorite_question', qid=question.id) }}" class="mobile-action-form">
                         <button type="submit" class="mobile-secondary-btn" onclick="event.stopPropagation()">
                             <i class="far fa-star"></i> 收藏
                         </button>
                     </form>
                     {% endif %}
                     
-                    <a href="{{ url_for('show_question', qid=question.id) }}" 
+                    <a href="{{ url_for('quiz.show_question', qid=question.id) }}" 
                        class="mobile-primary-btn" onclick="event.stopPropagation()">
                         <i class="fas fa-play"></i> 开始答题
                     </a>
@@ -389,7 +389,7 @@
             <ul class="pagination pagination-desktop justify-content-center mb-3">
                 {% if has_prev %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('browse_questions', page=page-1, type=current_type, search=current_search) }}" title="上一页">
+                    <a class="page-link" href="{{ url_for('quiz.browse_questions', page=page-1, type=current_type, search=current_search) }}" title="上一页">
                         <i class="fas fa-chevron-left"></i>
                     </a>
                 </li>
@@ -402,7 +402,7 @@
                 <!-- Show first page if not in range -->
                 {% if page > 3 %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('browse_questions', page=1, type=current_type, search=current_search) }}">1</a>
+                    <a class="page-link" href="{{ url_for('quiz.browse_questions', page=1, type=current_type, search=current_search) }}">1</a>
                 </li>
                 {% if page > 4 %}
                 <li class="page-item disabled">
@@ -420,7 +420,7 @@
                     {% if p == page %}
                     <span class="page-link">{{ p }}</span>
                     {% else %}
-                    <a class="page-link" href="{{ url_for('browse_questions', page=p, type=current_type, search=current_search) }}">{{ p }}</a>
+                    <a class="page-link" href="{{ url_for('quiz.browse_questions', page=p, type=current_type, search=current_search) }}">{{ p }}</a>
                     {% endif %}
                 </li>
                 {% endfor %}
@@ -433,13 +433,13 @@
                 </li>
                 {% endif %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('browse_questions', page=total_pages, type=current_type, search=current_search) }}">{{ total_pages }}</a>
+                    <a class="page-link" href="{{ url_for('quiz.browse_questions', page=total_pages, type=current_type, search=current_search) }}">{{ total_pages }}</a>
                 </li>
                 {% endif %}
                 
                 {% if has_next %}
                 <li class="page-item">
-                    <a class="page-link" href="{{ url_for('browse_questions', page=page+1, type=current_type, search=current_search) }}" title="下一页">
+                    <a class="page-link" href="{{ url_for('quiz.browse_questions', page=page+1, type=current_type, search=current_search) }}" title="下一页">
                         <i class="fas fa-chevron-right"></i>
                     </a>
                 </li>
@@ -486,7 +486,7 @@
                 <div class="row g-2">
                     <div class="col-4">
                         {% if has_prev %}
-                        <a href="{{ url_for('browse_questions', page=page-1, type=current_type, search=current_search) }}" class="btn btn-outline-primary btn-sm w-100">
+                        <a href="{{ url_for('quiz.browse_questions', page=page-1, type=current_type, search=current_search) }}" class="btn btn-outline-primary btn-sm w-100">
                             <i class="fas fa-chevron-left"></i><br><small>上一页</small>
                         </a>
                         {% else %}
@@ -505,7 +505,7 @@
                     
                     <div class="col-4">
                         {% if has_next %}
-                        <a href="{{ url_for('browse_questions', page=page+1, type=current_type, search=current_search) }}" class="btn btn-outline-primary btn-sm w-100">
+                        <a href="{{ url_for('quiz.browse_questions', page=page+1, type=current_type, search=current_search) }}" class="btn btn-outline-primary btn-sm w-100">
                             <i class="fas fa-chevron-right"></i><br><small>下一页</small>
                         </a>
                         {% else %}
@@ -539,7 +539,7 @@
         <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
         <h4 class="text-muted">题库为空</h4>
         <p class="text-muted">暂无题目可浏览</p>
-        <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
             <i class="fas fa-home"></i> 返回首页
         </a>
     </div>
