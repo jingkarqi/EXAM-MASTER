@@ -1,3 +1,26 @@
+# Repository Guidelines
+
+## Project Structure & Module Organization
+Source code lives at the repo root: `app.py` bootstraps the Flask app and registers blueprints from `blueprints/`. Auth, quiz flow, user history, and landing pages live in `blueprints/auth.py`, `quiz.py`, `user.py`, and `main.py` respectively. Shared HTML resides in `templates/` (`base.html`, `base_auth.html`, plus feature templates), while static assets stay under `static/` for CSS and JS. Data helpers and CSV converters sit in `tools/`, and SQLite artifacts (`database.db`, `questions.csv`) live beside the app for easy reset.
+
+## Build, Test, and Development Commands
+- `pip install -r requirements.txt` - install Flask, SQL helpers, and CSV utilities.
+- `C:\Users\jing\AppData\Local\Programs\Python\Python313\python.exe app.py` - start the dev server (defaults to http://localhost:32220; adjust in `config.py`).
+- `C:\Users\jing\AppData\Local\Programs\Python\Python313\python.exe test.py` - sanity-check CSV format before importing.
+Delete `database.db` to trigger a clean migration/import on the next startup.
+
+## Coding Style & Naming Conventions
+Follow PEP 8 with 4-space indents and explicit imports. Keep blueprint modules focused per domain and expose routes via `@blueprint.route` with snake_case function names that mirror their endpoint (`quiz_random`, `user_history`). Reuse template inheritance, keep Jinja blocks minimal, and stick to BEM selectors in `static/` styles (`.quiz-card__header`). Prefer parameterized SQL in `database.py` and close connections via context managers.
+
+## Testing Guidelines
+`C:\Users\jing\AppData\Local\Programs\Python\Python313\python.exe test.py` validates CSV structure; extend it when adding columns. For functional checks, run `C:\Users\jing\AppData\Local\Programs\Python\Python313\python.exe app.py` and walk through auth -> quiz -> history flows with sample accounts. When touching loaders in `blueprints/load_data.py` or schema changes in `database.py`, add temporary assertions in `tools/` scripts and remove once verified.
+
+## Commit & Pull Request Guidelines
+Match the existing history (`fix: ...`, `refactor: ...`, short imperative subjects plus optional Chinese descriptions). Squash noisy WIP commits before raising a PR. Each PR should describe scope, impacted blueprints/templates, test evidence (`C:\Users\jing\AppData\Local\Programs\Python\Python313\python.exe test.py`, manual flows), and note if a data reset is required. Attach screenshots for UI-facing tweaks and reference related issues or TODOs.
+
+## Security & Configuration Tips
+Store secrets (for example `SECRET_KEY`) via environment variables before deploying. Never commit real exam data; run converters in `tools/` to sanitize inputs. Validate user input at the form and SQL layer, and ensure authenticated routes retain `@login_required`.
+
 # EXAM-MASTER - 在线考试系统
 
 ## 项目概述
@@ -29,9 +52,10 @@ EXAM-MASTER/
 │   ├── auth.py           # 认证相关路由
 │   ├── main.py           # 主页面路由
 │   ├── quiz.py           # 答题功能路由
-│   └── user.py           # 用户功能路由
+│   ├── user.py           # 用户功能路由
+│   └── load_data.py      # 数据导入功能
 ├── templates/            # HTML 模板
-├── static/               # 静态资源 (CSS)
+├── static/               # 静态资源 (CSS/JS)
 └── tools/                # 数据转换工具
 ```
 
@@ -46,7 +70,7 @@ pip install -r requirements.txt
 ### 启动应用
 ```bash
 # 运行主应用
-python app.py
+C:\Users\jing\AppData\Local\Programs\Python\Python313\python.exe app.py
 ```
 
 应用将在 `http://localhost:32220` 启动（可通过 `config.py` 修改端口配置）。
@@ -65,11 +89,12 @@ python app.py
 - **history**: 答题历史记录
 - **favorites**: 用户收藏题目
 - **exam_sessions**: 考试会话记录
+- **question_banks**: 题库管理表
 
 ### 题目数据格式
 题目数据存储在 `questions.csv` 文件中，格式如下：
 - 题号、题干、A选项、B选项、C选项、D选项、E选项、答案、难度、题型
-- 支持单选题和多选题
+- 支持单选题、多选题、判断题、填空题
 - 答案字段存储正确选项字母（如 "A" 或 "ABC"）
 
 ### 路由结构
@@ -77,6 +102,7 @@ python app.py
 - `/auth/*`: 认证相关路由（登录、注册、登出）
 - `/quiz/*`: 答题功能路由（随机题、浏览、搜索、考试等）
 - `/user/*`: 用户功能路由（历史、收藏、统计等）
+- `/load_data/*`: 数据导入功能路由
 - `/`: 主页面和错误处理
 
 ### 认证机制
@@ -119,7 +145,11 @@ python app.py
 ### 4. 主页面模块 (main.py)
 - 首页显示和导航
 - APK 文件下载（Android 客户端）
-- 全局错误处理
+
+### 5. 数据导入模块 (load_data.py)
+- **文件上传**: 支持 CSV 和 TXT 格式
+- **数据验证**: 题目格式、答案有效性检查
+- **批量导入**: 预览和确认导入功能
 
 ## 开发和扩展
 
@@ -170,6 +200,7 @@ python app.py
 - **favorites.html**: 收藏题目管理
 - **statistics.html**: 个人统计分析
 - **login.html/register.html**: 用户认证页面
+- **import.html/import_preview.html**: 数据导入功能页面
 - **error.html**: 错误页面
 
 ### 前端技术特点
@@ -233,16 +264,3 @@ python app.py
 - 组件化样式设计，便于复用
 - 移动优先的响应式媒体查询
 - 平滑过渡动画提升用户体验
-
-<!-- ## 扩展建议
-
-1. **多语言支持**: 添加国际化支持
-2. **题型扩展**: 支持填空题、判断题等更多题型
-3. **批量导入**: 添加更多格式的题目导入功能
-4. **API 接口**: 为移动客户端提供 RESTful API
-5. **权限系统**: 添加管理员和教师角色
-6. **考试分析**: 更详细的考试结果分析和报告生成
-7. **PWA增强**: 添加离线支持和应用安装提示
-8. **主题系统**: 实现深色模式和自定义主题
-9. **实时通知**: 添加WebSocket支持实时功能
-10. **语音答题**: 支持语音输入和语音朗读题目 -->

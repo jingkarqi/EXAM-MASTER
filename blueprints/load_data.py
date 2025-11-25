@@ -2,8 +2,9 @@ import os
 import json
 import csv
 import tempfile
+import uuid
 from datetime import datetime
-from flask import Blueprint, request, render_template, session, redirect, url_for, flash, jsonify
+from flask import Blueprint, request, render_template, session, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from database import get_db
 from .auth import login_required, get_user_id
@@ -13,6 +14,7 @@ bp = Blueprint('load_data', __name__)
 # 允许的文件扩展名
 ALLOWED_EXTENSIONS = {'csv', 'txt'}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+IMPORT_STASH_DIR = os.path.join(tempfile.gettempdir(), 'exam_master_imports')
 
 def allowed_file(filename):
     """检查文件扩展名是否允许"""
@@ -104,6 +106,43 @@ def parse_txt_file(file_path):
     # 暂时返回空列表，后续可以集成现有转换工具
     return [], [{'row': 0, 'id': 'unknown', 'errors': ['TXT格式支持正在开发中']}]
 
+def ensure_stash_dir():
+    """确保用于暂存导入数据的目录存在"""
+    os.makedirs(IMPORT_STASH_DIR, exist_ok=True)
+    return IMPORT_STASH_DIR
+
+def stash_import_payload(questions, errors, filename):
+    """将解析结果保存在临时JSON文件中，并返回唯一ID"""
+    ensure_stash_dir()
+    job_id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex}"
+    stash_path = os.path.join(IMPORT_STASH_DIR, f"{job_id}.json")
+    payload = {
+        'questions': questions,
+        'errors': errors,
+        'filename': filename
+    }
+    with open(stash_path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, ensure_ascii=False)
+    return job_id
+
+def load_stashed_payload(job_id):
+    """根据唯一ID读取已暂存的导入数据"""
+    if not job_id:
+        return None
+    stash_path = os.path.join(ensure_stash_dir(), f"{job_id}.json")
+    if not os.path.exists(stash_path):
+        return None
+    with open(stash_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def delete_stashed_payload(job_id):
+    """删除指定ID的暂存文件"""
+    if not job_id:
+        return
+    stash_path = os.path.join(ensure_stash_dir(), f"{job_id}.json")
+    if os.path.exists(stash_path):
+        os.unlink(stash_path)
+
 @bp.route('/upload', methods=['GET', 'POST'])
 @login_required
 def upload():
@@ -152,10 +191,13 @@ def upload():
             else:
                 questions, errors = [], []
 
-            # 保存解析结果到session用于预览
-            session['import_questions'] = questions
-            session['import_errors'] = errors
-            session['import_filename'] = filename
+            # 清理之前的暂存文件，避免堆积
+            previous_job_id = session.pop('import_job_id', None)
+            delete_stashed_payload(previous_job_id)
+
+            # 保存解析结果到临时文件，仅在session中保存引用ID
+            job_id = stash_import_payload(questions, errors, filename)
+            session['import_job_id'] = job_id
 
             # 清理临时文件
             os.unlink(temp_path)
@@ -180,9 +222,17 @@ def upload():
 @login_required
 def preview():
     """预览和确认导入页面"""
-    questions = session.get('import_questions', [])
-    errors = session.get('import_errors', [])
-    filename = session.get('import_filename', '')
+    job_id = session.get('import_job_id')
+    payload = load_stashed_payload(job_id)
+
+    if payload:
+        questions = payload.get('questions', [])
+        errors = payload.get('errors', [])
+        filename = payload.get('filename', '')
+    else:
+        questions = []
+        errors = []
+        filename = ''
 
     # 检查 session 数据
     if not questions and not errors:
@@ -227,9 +277,8 @@ def preview():
             conn.commit()
 
             # 清理session数据
-            session.pop('import_questions', None)
-            session.pop('import_errors', None)
-            session.pop('import_filename', None)
+            session.pop('import_job_id', None)
+            delete_stashed_payload(job_id)
 
             flash(f'成功导入 {success_count} 道题目', 'success')
             return redirect(url_for('main.index'))
@@ -251,9 +300,8 @@ def preview():
 def cancel():
     """取消导入"""
     # 清理session数据
-    session.pop('import_questions', None)
-    session.pop('import_errors', None)
-    session.pop('import_filename', None)
+    job_id = session.pop('import_job_id', None)
+    delete_stashed_payload(job_id)
 
     flash('导入已取消', 'info')
     return redirect(url_for('main.index'))

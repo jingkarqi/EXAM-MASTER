@@ -50,7 +50,7 @@ body {
 }
 
 /* ====== 顶部导航栏 ====== */
-nav {
+.main-nav {
   background-color: #fff;
   box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
   padding: 0.8rem 1.5rem;
@@ -1061,7 +1061,7 @@ input[type="radio"] {
 }
 
 @media (max-width: 768px) {
-  .nav {
+  .main-nav {
     flex-direction: column;
     align-items: flex-start;
     padding: 1rem;
