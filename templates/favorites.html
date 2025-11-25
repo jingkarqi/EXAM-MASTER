@@ -9,7 +9,7 @@
         <div>
             <i class="fas fa-star"></i> 我的收藏
         </div>
-        <a href="{{ url_for('index') }}" class="btn btn-primary">
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
             <i class="fas fa-home"></i> 返回主页
         </a>
     </div>
@@ -29,14 +29,14 @@
                 {% for f in favorites %}
                 <tr>
                     <td>{{ f.question_id }}</td>
-                    <td><a href="{{ url_for('show_question', qid=f.question_id) }}">{{ f.stem }}</a></td>
+                    <td><a href="{{ url_for('quiz.show_question', qid=f.question_id) }}">{{ f.stem }}</a></td>
                     <td id="tag_display_{{ f.question_id }}">{{ f.tag }}</td>
                     <td class="d-flex gap-2">
-                        <form method="post" action="{{ url_for('unfavorite_question', qid=f.question_id) }}">
+                        <form method="post" action="{{ url_for('user.unfavorite_question', qid=f.question_id) }}">
                             <button type="submit" class="btn btn-danger btn-sm">取消收藏</button>
                         </form>
 
-                        <form class="update-tag-form d-flex gap-1" data-qid="{{ f.question_id }}" method="post" action="{{ url_for('update_tag', qid=f.question_id) }}">
+                        <form class="update-tag-form d-flex gap-1" data-qid="{{ f.question_id }}" method="post" action="{{ url_for('user.update_tag', qid=f.question_id) }}">
                             <input type="text" name="tag" placeholder="标记" value="{{ f.tag }}" class="form-control">
                             <button type="submit" class="btn btn-primary btn-sm">更新标记</button>
                         </form>
