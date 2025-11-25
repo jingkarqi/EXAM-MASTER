@@ -1,6 +1,6 @@
 import random
 from flask import Blueprint, request, render_template, redirect, url_for, flash, jsonify
-from database import get_db, fetch_question, is_favorite
+from database import get_db, fetch_question, is_favorite, get_active_question_bank_id
 from .auth import login_required, get_user_id, is_logged_in
 
 bp = Blueprint('user', __name__)
@@ -9,14 +9,15 @@ bp = Blueprint('user', __name__)
 @login_required
 def reset_history():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     try:
         conn = get_db()
         c = conn.cursor()
-        c.execute('DELETE FROM history WHERE user_id=?', (user_id,))
+        c.execute('DELETE FROM history WHERE user_id=? AND question_bank_id=?', (user_id, question_bank_id))
         c.execute('UPDATE users SET current_seq_qid = NULL WHERE id = ?', (user_id,))
         conn.commit()
         conn.close()
-        flash("答题历史已重置。现在您可以重新开始答题。", "success")
+        flash("已清空当前题库的答题历史。", "success")
     except Exception as e:
         flash(f"重置历史时出错: {str(e)}", "error")
         
@@ -26,15 +27,17 @@ def reset_history():
 @login_required
 def show_history():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT * FROM history WHERE user_id=? ORDER BY timestamp DESC', (user_id,))
+    c.execute('SELECT * FROM history WHERE user_id=? AND question_bank_id=? ORDER BY timestamp DESC',
+              (user_id, question_bank_id))
     rows = c.fetchall()
     conn.close()
     
     history_data = []
     for r in rows:
-        q = fetch_question(r['question_id'])
+        q = fetch_question(r['question_id'], question_bank_id)
         stem = q['stem'] if q else '题目已删除'
         history_data.append({
             'id': r['id'],
@@ -51,9 +54,11 @@ def show_history():
 @login_required
 def wrong_questions():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT question_id FROM history WHERE user_id=? AND correct=0', (user_id,))
+    c.execute('SELECT question_id FROM history WHERE user_id=? AND question_bank_id=? AND correct=0',
+              (user_id, question_bank_id))
     rows = c.fetchall()
     conn.close()
     
@@ -61,7 +66,7 @@ def wrong_questions():
     questions_list = []
     
     for qid in wrong_ids:
-        q = fetch_question(qid)
+        q = fetch_question(qid, question_bank_id)
         if q:
             questions_list.append(q)
     
@@ -71,9 +76,11 @@ def wrong_questions():
 @login_required
 def only_wrong_mode():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT question_id FROM history WHERE user_id=? AND correct=0', (user_id,))
+    c.execute('SELECT question_id FROM history WHERE user_id=? AND question_bank_id=? AND correct=0',
+              (user_id, question_bank_id))
     rows = c.fetchall()
     conn.close()
     
@@ -84,8 +91,8 @@ def only_wrong_mode():
         return redirect(url_for('main.index'))
     
     qid = random.choice(wrong_ids)
-    q = fetch_question(qid)
-    is_fav = is_favorite(user_id, qid)
+    q = fetch_question(qid, question_bank_id)
+    is_fav = is_favorite(user_id, qid, question_bank_id)
     
     return render_template('question.html', 
                           question=q, 
@@ -95,11 +102,12 @@ def only_wrong_mode():
 @login_required
 def favorite_question(qid):
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     conn = get_db()
     c = conn.cursor()
     try:
-        c.execute('INSERT OR IGNORE INTO favorites (user_id, question_id, tag) VALUES (?,?,?)',
-                  (user_id, qid, ''))
+        c.execute('INSERT OR IGNORE INTO favorites (user_id, question_id, question_bank_id, tag) VALUES (?,?,?,?)',
+                  (user_id, qid, question_bank_id, ''))
         conn.commit()
         flash("收藏成功！", "success")
     except Exception as e:
@@ -116,10 +124,12 @@ def favorite_question(qid):
 @login_required
 def unfavorite_question(qid):
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     conn = get_db()
     c = conn.cursor()
     try:
-        c.execute('DELETE FROM favorites WHERE user_id=? AND question_id=?', (user_id, qid))
+        c.execute('DELETE FROM favorites WHERE user_id=? AND question_id=? AND question_bank_id=?',
+                  (user_id, qid, question_bank_id))
         conn.commit()
         flash("已取消收藏", "success")
     except Exception as e:
@@ -144,8 +154,8 @@ def update_tag(qid):
     conn = get_db()
     c = conn.cursor()
     try:
-        c.execute('UPDATE favorites SET tag=? WHERE user_id=? AND question_id=?',
-                  (new_tag, user_id, qid))
+        c.execute('UPDATE favorites SET tag=? WHERE user_id=? AND question_id=? AND question_bank_id=?',
+                  (new_tag, user_id, qid, get_active_question_bank_id(user_id)))
         conn.commit()
         return jsonify({"success": True, "msg": "标记更新成功"})
     except Exception as e:
@@ -157,14 +167,15 @@ def update_tag(qid):
 @login_required
 def show_favorites():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     conn = get_db()
     c = conn.cursor()
     c.execute('''
         SELECT f.question_id, f.tag, q.stem 
         FROM favorites f 
-        JOIN questions q ON f.question_id=q.id 
-        WHERE f.user_id=?
-    ''', (user_id,))
+        JOIN questions q ON f.question_id=q.id AND f.question_bank_id = q.question_bank_id
+        WHERE f.user_id=? AND f.question_bank_id=?
+    ''', (user_id, question_bank_id))
     rows = c.fetchall()
     conn.close()
     
@@ -175,10 +186,12 @@ def show_favorites():
 @login_required
 def statistics():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     conn = get_db()
     c = conn.cursor()
     
-    c.execute('SELECT COUNT(*) as total, SUM(correct) as correct_count FROM history WHERE user_id=?', (user_id,))
+    c.execute('SELECT COUNT(*) as total, SUM(correct) as correct_count FROM history WHERE user_id=? AND question_bank_id=?',
+              (user_id, question_bank_id))
     row = c.fetchone()
     total = row['total'] if row['total'] else 0
     correct_count = row['correct_count'] if row['correct_count'] else 0
@@ -186,9 +199,11 @@ def statistics():
     
     c.execute('''
         SELECT q.difficulty, COUNT(*) as total, SUM(h.correct) as correct_count
-        FROM history h JOIN questions q ON h.question_id=q.id
-        WHERE h.user_id=? GROUP BY q.difficulty
-    ''', (user_id,))
+        FROM history h 
+        JOIN questions q ON h.question_id=q.id AND h.question_bank_id = q.question_bank_id
+        WHERE h.user_id=? AND h.question_bank_id=?
+        GROUP BY q.difficulty
+    ''', (user_id, question_bank_id))
     difficulty_stats = []
     for r in c.fetchall():
         difficulty_stats.append({
@@ -200,9 +215,11 @@ def statistics():
     
     c.execute('''
         SELECT q.category, COUNT(*) as total, SUM(h.correct) as correct_count
-        FROM history h JOIN questions q ON h.question_id=q.id
-        WHERE h.user_id=? GROUP BY q.category
-    ''', (user_id,))
+        FROM history h 
+        JOIN questions q ON h.question_id=q.id AND h.question_bank_id = q.question_bank_id
+        WHERE h.user_id=? AND h.question_bank_id=?
+        GROUP BY q.category
+    ''', (user_id, question_bank_id))
     category_stats = []
     for r in c.fetchall():
         category_stats.append({
@@ -214,10 +231,11 @@ def statistics():
     
     c.execute('''
         SELECT h.question_id, COUNT(*) as wrong_times, q.stem
-        FROM history h JOIN questions q ON h.question_id=q.id
-        WHERE h.user_id=? AND h.correct=0
+        FROM history h 
+        JOIN questions q ON h.question_id=q.id AND h.question_bank_id = q.question_bank_id
+        WHERE h.user_id=? AND h.question_bank_id=? AND h.correct=0
         GROUP BY h.question_id ORDER BY wrong_times DESC LIMIT 10
-    ''', (user_id,))
+    ''', (user_id, question_bank_id))
     worst_questions = []
     for r in c.fetchall():
         worst_questions.append({
@@ -228,9 +246,9 @@ def statistics():
     
     c.execute('''
         SELECT id, mode, start_time, score, (SELECT COUNT(*) FROM JSON_EACH(question_ids)) as question_count
-        FROM exam_sessions WHERE user_id=? AND completed=1
+        FROM exam_sessions WHERE user_id=? AND question_bank_id=? AND completed=1
         ORDER BY start_time DESC LIMIT 5
-    ''', (user_id,))
+    ''', (user_id, question_bank_id))
     recent_exams = []
     for r in c.fetchall():
         recent_exams.append({

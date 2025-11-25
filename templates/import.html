@@ -12,50 +12,87 @@
 </div>
 
 <div class="import-container">
-    <!-- 上传区域 -->
-    <div class="upload-area" id="uploadArea">
-        <div class="upload-icon">
-            <i class="fas fa-cloud-upload-alt"></i>
-        </div>
-        <h3 class="upload-title">拖放文件到此处</h3>
-        <p class="upload-subtitle">或点击选择文件</p>
-        <input type="file" id="fileInput" name="file" accept=".csv,.txt" hidden>
-        <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-            <i class="fas fa-folder-open"></i>
-            选择文件
-        </button>
-    </div>
-
-    <!-- 文件信息 -->
-    <div class="file-info" id="fileInfo" style="display: none;">
-        <div class="file-info-header">
-            <i class="fas fa-file-alt"></i>
-            <span id="fileName"></span>
-        </div>
-        <div class="file-info-details">
-            <div class="file-info-item">
-                <span class="file-info-label">文件大小：</span>
-                <span id="fileSize"></span>
-            </div>
-            <div class="file-info-item">
-                <span class="file-info-label">文件类型：</span>
-                <span id="fileType"></span>
-            </div>
-        </div>
-        <div class="file-actions">
-            <button type="button" class="btn btn-secondary" onclick="clearFile()">
-                <i class="fas fa-times"></i>
-                取消选择
-            </button>
-            <button type="submit" class="btn btn-primary" form="uploadForm">
-                <i class="fas fa-upload"></i>
-                开始上传
-            </button>
-        </div>
-    </div>
-
-    <!-- 上传表单 -->
     <form id="uploadForm" method="post" enctype="multipart/form-data" action="{{ url_for('load_data.upload') }}">
+        <!-- 题库选择 -->
+        <div class="bank-selection card mb-4">
+            <h3 class="card-title mb-3">
+                <i class="fas fa-layer-group"></i> 选择目标题库
+            </h3>
+            <div class="bank-option">
+                <label>
+                    <input type="radio" name="target_mode" value="existing" checked>
+                    导入到已有题库
+                </label>
+                <select name="existing_bank_id" id="existingBankSelect" class="form-control mt-2">
+                    {% for bank in banks %}
+                        <option value="{{ bank.id }}" {% if bank.id == active_bank_id %}selected{% endif %}>
+                            {{ bank.name }}（{{ bank.question_count or 0 }} 题）
+                        </option>
+                    {% else %}
+                        <option value="0" selected>{{ system_bank_name or '系统默认题库' }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="bank-option mt-3">
+                <label>
+                    <input type="radio" name="target_mode" value="new">
+                    新建题库
+                </label>
+                <div id="newBankFields" class="new-bank-fields">
+                    <div class="form-group">
+                        <label class="form-label">题库名称</label>
+                        <input type="text" name="new_bank_name" class="form-control" placeholder="例如：2025 年毛概题库">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">描述（可选）</label>
+                        <textarea name="new_bank_description" class="form-control" rows="2" placeholder="一句话介绍题库来源或用途"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 上传区域 -->
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <h3 class="upload-title">拖放文件到此处</h3>
+            <p class="upload-subtitle">或点击选择文件</p>
+            <input type="file" id="fileInput" name="file" accept=".csv,.txt" hidden>
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                <i class="fas fa-folder-open"></i>
+                选择文件
+            </button>
+        </div>
+
+        <!-- 文件信息 -->
+        <div class="file-info" id="fileInfo" style="display: none;">
+            <div class="file-info-header">
+                <i class="fas fa-file-alt"></i>
+                <span id="fileName"></span>
+            </div>
+            <div class="file-info-details">
+                <div class="file-info-item">
+                    <span class="file-info-label">文件大小：</span>
+                    <span id="fileSize"></span>
+                </div>
+                <div class="file-info-item">
+                    <span class="file-info-label">文件类型：</span>
+                    <span id="fileType"></span>
+                </div>
+            </div>
+            <div class="file-actions">
+                <button type="button" class="btn btn-secondary" onclick="clearFile()">
+                    <i class="fas fa-times"></i>
+                    取消选择
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload"></i>
+                    开始上传
+                </button>
+            </div>
+        </div>
+
         <input type="file" name="file" id="formFileInput" accept=".csv,.txt" hidden>
     </form>
 
@@ -112,7 +149,7 @@
     </div>
 
     <!-- 注意事项 -->
-    <div class="notice-box">
+<div class="notice-box">
         <div class="notice-header">
             <i class="fas fa-exclamation-triangle"></i>
             <h4>注意事项</h4>
@@ -128,6 +165,31 @@
         </div>
     </div>
 </div>
+
+<style>
+    .bank-selection .bank-option label {
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--gray-800);
+    }
+
+    .bank-option select {
+        max-width: 400px;
+    }
+
+    .new-bank-fields {
+        display: none;
+        margin-top: 0.75rem;
+        padding-left: 1.5rem;
+        border-left: 2px dashed var(--gray-200);
+    }
+
+    .bank-selection .form-group {
+        margin-bottom: 0.75rem;
+    }
+</style>
 
 <!-- 加载遮罩 -->
 <div class="loading-mask" id="loadingMask" style="display: none;">

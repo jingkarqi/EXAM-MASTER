@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from flask import Blueprint, render_template, send_file, abort, current_app
-from database import get_db
+from database import get_db, get_active_question_bank_id, get_question_bank_summary
 from .auth import login_required, get_user_id
 
 bp = Blueprint('main', __name__)
@@ -17,10 +17,14 @@ def index():
     user_data = c.fetchone()
     current_seq_qid = user_data['current_seq_qid'] if user_data and user_data['current_seq_qid'] else None
     conn.close()
+
+    active_bank_id = get_active_question_bank_id(user_id)
+    active_bank_summary = get_question_bank_summary(active_bank_id, user_id)
     
     return render_template('index.html', 
                           current_year=datetime.now().year,
-                          current_seq_qid=current_seq_qid)
+                          current_seq_qid=current_seq_qid,
+                          active_bank_summary=active_bank_summary)
 
 @bp.route('/ExamMasterAndroid/<filename>')
 def download_apk(filename):

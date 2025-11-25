@@ -27,7 +27,21 @@
                 <span class="stat-label">错误题目：</span>
                 <span class="stat-value text-danger">{{ errors|length }}</span>
             </div>
+            <div class="stat-item">
+                <span class="stat-label">目标题库：</span>
+                <span class="stat-value">
+                    {{ target_bank.display_name }}
+                    {% if target_bank.mode == 'new' %}
+                        <span class="badge badge-info ms-1">新建</span>
+                    {% endif %}
+                </span>
+            </div>
         </div>
+        {% if target_bank.description %}
+        <p class="mt-2 text-muted">
+            <i class="fas fa-info-circle"></i> {{ target_bank.description }}
+        </p>
+        {% endif %}
     </div>
 
     <!-- 错误信息 -->

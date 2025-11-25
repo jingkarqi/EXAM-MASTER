@@ -13,7 +13,10 @@
             <p class="lead mb-3">高效的在线刷题系统，助力学习提升</p>
             <p class="current-exam-info mb-4">
                 <span class="badge badge-primary">
-                    <i class="fas fa-bookmark"></i> 当前题库: 毛概2023级(2025-05)
+                    <i class="fas fa-bookmark"></i> 当前题库: {{ active_bank_summary.name if active_bank_summary else '系统默认题库' }}
+                    {% if active_bank_summary and active_bank_summary.question_count %}
+                        （{{ active_bank_summary.question_count }} 题）
+                    {% endif %}
                 </span>
                 {% if current_seq_qid %}
                 <span class="badge badge-success mt-2 d-block">

@@ -2,7 +2,14 @@ import json
 import random
 from datetime import datetime, timedelta
 from flask import Blueprint, request, render_template, session, redirect, url_for, flash, jsonify
-from database import get_db, fetch_question, random_question_id, is_favorite, fetch_random_question_ids
+from database import (
+    get_db,
+    fetch_question,
+    random_question_id,
+    is_favorite,
+    fetch_random_question_ids,
+    get_active_question_bank_id,
+)
 from .auth import login_required, get_user_id
 
 bp = Blueprint('quiz', __name__)
@@ -40,13 +47,14 @@ def validate_answer_by_type(question_type, user_answer, correct_answer):
 @login_required
 def random_question():
     user_id = get_user_id()
-    qid = random_question_id(user_id)
+    question_bank_id = get_active_question_bank_id(user_id)
+    qid = random_question_id(user_id, question_bank_id)
     
     conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT COUNT(*) as total FROM questions')
+    c.execute('SELECT COUNT(*) as total FROM questions WHERE question_bank_id=?', (question_bank_id,))
     total = c.fetchone()['total']
-    c.execute('SELECT COUNT(DISTINCT question_id) as answered FROM history WHERE user_id=?', (user_id,))
+    c.execute('SELECT COUNT(DISTINCT question_id) as answered FROM history WHERE user_id=? AND question_bank_id=?', (user_id, question_bank_id))
     answered = c.fetchone()['answered']
     conn.close()
     
@@ -54,8 +62,8 @@ def random_question():
         flash("您已完成所有题目！可以重置历史以重新开始。", "info")
         return render_template('question.html', question=None, answered=answered, total=total)
         
-    q = fetch_question(qid)
-    is_fav = is_favorite(user_id, qid)
+    q = fetch_question(qid, question_bank_id)
+    is_fav = is_favorite(user_id, qid, question_bank_id)
     
     return render_template('question.html', 
                           question=q, 
@@ -67,7 +75,8 @@ def random_question():
 @login_required
 def show_question(qid):
     user_id = get_user_id()
-    q = fetch_question(qid)
+    question_bank_id = get_active_question_bank_id(user_id)
+    q = fetch_question(qid, question_bank_id)
     
     if q is None:
         flash("题目不存在", "error")
@@ -87,21 +96,21 @@ def show_question(qid):
         correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
 
         c.execute(
-            'INSERT INTO history (user_id, question_id, user_answer, correct) VALUES (?,?,?,?)',
-            (user_id, qid, user_answer_str, correct)
+            'INSERT INTO history (user_id, question_id, question_bank_id, user_answer, correct) VALUES (?,?,?,?,?)',
+            (user_id, qid, question_bank_id, user_answer_str, correct)
         )
         conn.commit()
 
-        c.execute('SELECT COUNT(*) AS total FROM questions')
+        c.execute('SELECT COUNT(*) AS total FROM questions WHERE question_bank_id=?', (question_bank_id,))
         total = c.fetchone()['total']
-        c.execute('SELECT COUNT(DISTINCT question_id) AS answered FROM history WHERE user_id=?', (user_id,))
+        c.execute('SELECT COUNT(DISTINCT question_id) AS answered FROM history WHERE user_id=? AND question_bank_id=?', (user_id, question_bank_id))
         answered = c.fetchone()['answered']
         conn.close()
 
         result_msg = "回答正确" if correct else f"回答错误，正确答案：{q['answer']}"
         flash(result_msg, "success" if correct else "error")
         
-        is_fav = is_favorite(user_id, qid)
+        is_fav = is_favorite(user_id, qid, question_bank_id)
         
         return render_template('question.html',
                               question=q,
@@ -110,13 +119,13 @@ def show_question(qid):
                               total=total,
                               is_favorite=is_fav)
 
-    c.execute('SELECT COUNT(*) AS total FROM questions')
+    c.execute('SELECT COUNT(*) AS total FROM questions WHERE question_bank_id=?', (question_bank_id,))
     total = c.fetchone()['total']
-    c.execute('SELECT COUNT(DISTINCT question_id) AS answered FROM history WHERE user_id=?', (user_id,))
+    c.execute('SELECT COUNT(DISTINCT question_id) AS answered FROM history WHERE user_id=? AND question_bank_id=?', (user_id, question_bank_id))
     answered = c.fetchone()['answered']
     conn.close()
     
-    is_fav = is_favorite(user_id, qid)
+    is_fav = is_favorite(user_id, qid, question_bank_id)
 
     return render_template('question.html',
                           question=q,
@@ -129,13 +138,17 @@ def show_question(qid):
 @bp.route('/search', methods=['GET', 'POST'])
 @login_required
 def search():
+    user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     query = request.form.get('query', '')
     results = []
     
     if query:
         conn = get_db()
         c = conn.cursor()
-        c.execute("SELECT * FROM questions WHERE stem LIKE ?", ('%'+query+'%',))
+        like_term = f'%{query}%'
+        c.execute("SELECT * FROM questions WHERE question_bank_id=? AND (stem LIKE ? OR id LIKE ?)",
+                  (question_bank_id, like_term, like_term))
         rows = c.fetchall()
         conn.close()
         
@@ -148,6 +161,7 @@ def search():
 @login_required
 def browse_questions():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     page = request.args.get('page', 1, type=int)
     question_type = request.args.get('type', '')
     search_query = request.args.get('search', '')
@@ -158,8 +172,8 @@ def browse_questions():
     conn = get_db()
     c = conn.cursor()
 
-    where_conditions = []
-    params = []
+    where_conditions = ['question_bank_id = ?']
+    params = [question_bank_id]
 
     if question_type and question_type != 'all':
         where_conditions.append('qtype = ?')
@@ -209,8 +223,8 @@ def browse_questions():
             'category': row['category'],
             'options': json.loads(row['options']) if row['options'] else {}
         }
-        c.execute('SELECT 1 FROM favorites WHERE user_id=? AND question_id=?', 
-                  (user_id, row['id']))
+        c.execute('SELECT 1 FROM favorites WHERE user_id=? AND question_id=? AND question_bank_id=?', 
+                  (user_id, row['id'], question_bank_id))
         question_data['is_favorite'] = bool(c.fetchone())
         questions.append(question_data)
     
@@ -241,11 +255,15 @@ def browse_questions():
 def filter_questions():
     conn = get_db()
     c = conn.cursor()
+    user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     
-    c.execute('SELECT DISTINCT category FROM questions WHERE category IS NOT NULL AND category != ""')
+    c.execute('SELECT DISTINCT category FROM questions WHERE question_bank_id=? AND category IS NOT NULL AND category != ""',
+              (question_bank_id,))
     categories = [r['category'] for r in c.fetchall()]
     
-    c.execute('SELECT DISTINCT difficulty FROM questions WHERE difficulty IS NOT NULL AND difficulty != ""')
+    c.execute('SELECT DISTINCT difficulty FROM questions WHERE difficulty IS NOT NULL AND difficulty != "" AND question_bank_id=?',
+              (question_bank_id,))
     difficulties = [r['difficulty'] for r in c.fetchall()]
 
     selected_category = ''
@@ -256,8 +274,8 @@ def filter_questions():
         selected_category = request.form.get('category', '')
         selected_difficulty = request.form.get('difficulty', '')
         
-        sql = "SELECT id, stem FROM questions WHERE 1=1"
-        params = []
+        sql = "SELECT id, stem FROM questions WHERE question_bank_id=?"
+        params = [question_bank_id]
         if selected_category:
             sql += " AND category=?"
             params.append(selected_category)
@@ -284,6 +302,7 @@ def filter_questions():
 @login_required
 def sequential_start():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     conn = get_db()
     c = conn.cursor()
 
@@ -291,17 +310,26 @@ def sequential_start():
     user_data = c.fetchone()
     
     if user_data and user_data['current_seq_qid']:
-        current_qid = user_data['current_seq_qid']
+        potential_qid = user_data['current_seq_qid']
+        current_question = fetch_question(potential_qid, question_bank_id)
+        current_qid = potential_qid if current_question else None
     else:
+        current_qid = None
+    
+    if not current_qid:
         c.execute('''
             SELECT id FROM questions
-            WHERE id NOT IN (SELECT question_id FROM history WHERE user_id = ?)
+            WHERE question_bank_id = ?
+              AND id NOT IN (
+                  SELECT question_id FROM history WHERE user_id = ? AND question_bank_id = ?
+              )
             ORDER BY CAST(id AS INTEGER) ASC LIMIT 1
-        ''', (user_id,))
+        ''', (question_bank_id, user_id, question_bank_id))
         row = c.fetchone()
         
         if row is None:
-            c.execute('SELECT id FROM questions ORDER BY CAST(id AS INTEGER) ASC LIMIT 1')
+            c.execute('SELECT id FROM questions WHERE question_bank_id=? ORDER BY CAST(id AS INTEGER) ASC LIMIT 1',
+                      (question_bank_id,))
             row = c.fetchone()
             if row is None:
                 conn.close()
@@ -322,7 +350,8 @@ def sequential_start():
 @login_required
 def show_sequential_question(qid):
     user_id = get_user_id()
-    q = fetch_question(qid)
+    question_bank_id = get_active_question_bank_id(user_id)
+    q = fetch_question(qid, question_bank_id)
     
     if q is None:
         flash("题目不存在", "error")
@@ -345,15 +374,16 @@ def show_sequential_question(qid):
         question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
         correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
         
-        c.execute('INSERT INTO history (user_id, question_id, user_answer, correct) VALUES (?,?,?,?)',
-                  (user_id, qid, user_answer_str, correct))
+        c.execute('INSERT INTO history (user_id, question_id, question_bank_id, user_answer, correct) VALUES (?,?,?,?,?)',
+                  (user_id, qid, question_bank_id, user_answer_str, correct))
         
         c.execute('''
             SELECT id FROM questions
             WHERE CAST(id AS INTEGER) > ?
-              AND id NOT IN (SELECT question_id FROM history WHERE user_id = ?)
+              AND question_bank_id = ?
+              AND id NOT IN (SELECT question_id FROM history WHERE user_id = ? AND question_bank_id = ?)
             ORDER BY CAST(id AS INTEGER) ASC LIMIT 1
-        ''', (int(qid), user_id))
+        ''', (int(qid), question_bank_id, user_id, question_bank_id))
         
         row = c.fetchone()
         if row:
@@ -362,15 +392,17 @@ def show_sequential_question(qid):
         else:
             c.execute('''
                 SELECT id FROM questions
-                WHERE id NOT IN (SELECT question_id FROM history WHERE user_id = ?)
+                WHERE question_bank_id = ?
+                  AND id NOT IN (SELECT question_id FROM history WHERE user_id = ? AND question_bank_id = ?)
                 ORDER BY CAST(id AS INTEGER) ASC LIMIT 1
-            ''', (user_id,))
+            ''', (question_bank_id, user_id, question_bank_id))
             row = c.fetchone()
             if row:
                 next_qid = row['id']
                 c.execute('UPDATE users SET current_seq_qid = ? WHERE id = ?', (next_qid, user_id))
             else:
-                c.execute('SELECT id FROM questions ORDER BY CAST(id AS INTEGER) ASC LIMIT 1')
+                c.execute('SELECT id FROM questions WHERE question_bank_id=? ORDER BY CAST(id AS INTEGER) ASC LIMIT 1',
+                          (question_bank_id,))
                 row = c.fetchone()
                 if row:
                     next_qid = row['id']
@@ -382,14 +414,15 @@ def show_sequential_question(qid):
         result_msg = "回答正确！" if correct else f"回答错误，正确答案：{q['answer']}"
         flash(result_msg, "success" if correct else "error")
     
-    c.execute('SELECT COUNT(*) AS total FROM questions')
+    c.execute('SELECT COUNT(*) AS total FROM questions WHERE question_bank_id=?', (question_bank_id,))
     total = c.fetchone()['total']
-    c.execute('SELECT COUNT(DISTINCT question_id) AS answered FROM history WHERE user_id = ?', (user_id,))
+    c.execute('SELECT COUNT(DISTINCT question_id) AS answered FROM history WHERE user_id = ? AND question_bank_id=?',
+              (user_id, question_bank_id))
     answered = c.fetchone()['answered']
     conn.commit()
     conn.close()
     
-    is_fav = is_favorite(user_id, qid)
+    is_fav = is_favorite(user_id, qid, question_bank_id)
     
     return render_template('question.html',
                           question=q,
@@ -412,10 +445,11 @@ def modes():
 @login_required
 def start_timed_mode():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     question_count = int(request.form.get('question_count', 5))
     duration_minutes = int(request.form.get('duration', 10))
     
-    question_ids = fetch_random_question_ids(question_count)
+    question_ids = fetch_random_question_ids(question_count, question_bank_id)
     start_time = datetime.now()
     duration = duration_minutes * 60
     
@@ -424,9 +458,9 @@ def start_timed_mode():
     try:
         c.execute('''
             INSERT INTO exam_sessions 
-            (user_id, mode, question_ids, start_time, duration) 
-            VALUES (?,?,?,?,?)
-        ''', (user_id, 'timed', json.dumps(question_ids), start_time, duration))
+            (user_id, mode, question_ids, start_time, duration, question_bank_id) 
+            VALUES (?,?,?,?,?,?)
+        ''', (user_id, 'timed', json.dumps(question_ids), start_time, duration, question_bank_id))
         
         exam_id = c.lastrowid
         conn.commit()
@@ -458,6 +492,9 @@ def timed_mode():
         flash("无法找到考试会话", "error")
         return redirect(url_for('main.index'))
     
+    question_bank_id = exam['question_bank_id'] if exam else get_active_question_bank_id(user_id)
+    question_bank_id = exam['question_bank_id'] if exam else get_active_question_bank_id(user_id)
+    question_bank_id = exam['question_bank_id'] if exam else get_active_question_bank_id(user_id)
     question_ids = json.loads(exam['question_ids'])
     start_time = datetime.strptime(exam['start_time'], '%Y-%m-%d %H:%M:%S.%f')
     end_time = start_time + timedelta(seconds=exam['duration'])
@@ -466,7 +503,7 @@ def timed_mode():
     if remaining <= 0:
         return redirect(url_for('quiz.submit_timed_mode'))
     
-    questions_list = [fetch_question(qid) for qid in question_ids]
+    questions_list = [fetch_question(qid, question_bank_id) for qid in question_ids]
     return render_template('timed_mode.html', questions=questions_list, remaining=remaining)
 
 @bp.route('/submit_timed_mode', methods=['POST', 'GET'])
@@ -495,7 +532,7 @@ def submit_timed_mode():
     
     for qid in question_ids:
         user_answer = request.form.getlist(f'answer_{qid}')
-        q = fetch_question(qid)
+        q = fetch_question(qid, question_bank_id)
         if not q: continue
         user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
 
@@ -503,8 +540,8 @@ def submit_timed_mode():
         question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
         correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
         if correct: correct_count += 1
-        c.execute('INSERT INTO history (user_id, question_id, user_answer, correct) VALUES (?,?,?,?)',
-                  (user_id, qid, user_answer_str, correct))
+        c.execute('INSERT INTO history (user_id, question_id, question_bank_id, user_answer, correct) VALUES (?,?,?,?,?)',
+                  (user_id, qid, question_bank_id, user_answer_str, correct))
     
     score = (correct_count / total * 100) if total > 0 else 0
     c.execute('UPDATE exam_sessions SET completed=1, score=? WHERE id=?', (score, exam_id))
@@ -520,8 +557,9 @@ def submit_timed_mode():
 @login_required
 def start_exam():
     user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
     question_count = int(request.form.get('question_count', 10))
-    question_ids = fetch_random_question_ids(question_count)
+    question_ids = fetch_random_question_ids(question_count, question_bank_id)
     start_time = datetime.now()
     duration = 0
     
@@ -530,9 +568,9 @@ def start_exam():
     try:
         c.execute('''
             INSERT INTO exam_sessions 
-            (user_id, mode, question_ids, start_time, duration) 
-            VALUES (?,?,?,?,?)
-        ''', (user_id, 'exam', json.dumps(question_ids), start_time, duration))
+            (user_id, mode, question_ids, start_time, duration, question_bank_id) 
+            VALUES (?,?,?,?,?,?)
+        ''', (user_id, 'exam', json.dumps(question_ids), start_time, duration, question_bank_id))
         
         exam_id = c.lastrowid
         conn.commit()
@@ -567,8 +605,9 @@ def exam():
         return redirect(url_for('main.index'))
     
     # === 关键点：以下代码必须和上面的 if 保持同级缩进，不能缩进进去 ===
+    question_bank_id = exam_data['question_bank_id']
     question_ids = json.loads(exam_data['question_ids'])
-    questions_list = [fetch_question(qid) for qid in question_ids]
+    questions_list = [fetch_question(qid, question_bank_id) for qid in question_ids]
     
     # 必须有这个 return
     return render_template('exam.html', questions=questions_list)
@@ -597,7 +636,7 @@ def submit_exam():
     
     for qid in question_ids:
         user_answer = request.form.getlist(f'answer_{qid}')
-        q = fetch_question(qid)
+        q = fetch_question(qid, question_bank_id)
         if not q: continue
         user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
 
@@ -606,8 +645,8 @@ def submit_exam():
         correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
         if correct: correct_count += 1
         
-        c.execute('INSERT INTO history (user_id, question_id, user_answer, correct) VALUES (?,?,?,?)',
-                  (user_id, qid, user_answer_str, correct))
+        c.execute('INSERT INTO history (user_id, question_id, question_bank_id, user_answer, correct) VALUES (?,?,?,?,?)',
+                  (user_id, qid, question_bank_id, user_answer_str, correct))
         
         question_results.append({
             "id": qid,

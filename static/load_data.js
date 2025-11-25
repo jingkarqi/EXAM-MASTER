@@ -31,6 +31,18 @@ class ImportManager {
         if (clearBtn) {
             clearBtn.addEventListener('click', () => this.clearFile());
         }
+
+        // 题库模式切换
+        this.bankModeRadios = document.querySelectorAll('input[name="target_mode"]');
+        this.newBankFields = document.getElementById('newBankFields');
+        this.existingBankSelect = document.getElementById('existingBankSelect');
+
+        if (this.bankModeRadios.length > 0) {
+            this.bankModeRadios.forEach(radio => {
+                radio.addEventListener('change', () => this.handleBankModeChange());
+            });
+            this.handleBankModeChange();
+        }
     }
 
     setupDragDrop() {
@@ -167,6 +179,23 @@ class ImportManager {
             return;
         }
 
+        const selectedModeInput = document.querySelector('input[name="target_mode"]:checked');
+        const selectedMode = selectedModeInput ? selectedModeInput.value : 'existing';
+        if (selectedMode === 'existing') {
+            if (!this.existingBankSelect || !this.existingBankSelect.value) {
+                event.preventDefault();
+                this.showError('请选择一个目标题库');
+                return;
+            }
+        } else {
+            const newBankNameInput = document.querySelector('input[name="new_bank_name"]');
+            if (!newBankNameInput || !newBankNameInput.value.trim()) {
+                event.preventDefault();
+                this.showError('请填写新题库名称');
+                return;
+            }
+        }
+
         // 显示加载遮罩
         this.showLoading();
 
@@ -266,6 +295,19 @@ class ImportManager {
         const loadingMask = document.getElementById('loadingMask');
         if (loadingMask) {
             loadingMask.style.display = 'none';
+        }
+    }
+
+    handleBankModeChange() {
+        const selectedModeInput = document.querySelector('input[name="target_mode"]:checked');
+        const selectedMode = selectedModeInput ? selectedModeInput.value : 'existing';
+
+        if (this.newBankFields) {
+            this.newBankFields.style.display = selectedMode === 'new' ? 'block' : 'none';
+        }
+
+        if (this.existingBankSelect) {
+            this.existingBankSelect.disabled = selectedMode === 'new';
         }
     }
 }

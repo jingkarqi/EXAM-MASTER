@@ -23,6 +23,7 @@ from blueprints.auth import bp as auth_bp
 from blueprints.quiz import bp as quiz_bp
 from blueprints.user import bp as user_bp
 from blueprints.load_data import bp as load_data_bp
+from blueprints.question_bank import bp as question_bank_bp
 
 # 初始化 Flask 应用
 app = Flask(__name__)
@@ -50,6 +51,7 @@ app.register_blueprint(auth_bp)
 app.register_blueprint(quiz_bp)
 app.register_blueprint(user_bp)
 app.register_blueprint(load_data_bp)
+app.register_blueprint(question_bank_bp)
 
 if __name__ == '__main__':
     # 启动应用

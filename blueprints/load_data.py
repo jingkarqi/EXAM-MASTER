@@ -6,7 +6,17 @@ import uuid
 from datetime import datetime
 from flask import Blueprint, request, render_template, session, redirect, url_for, flash
 from werkzeug.utils import secure_filename
-from database import get_db
+from database import (
+    get_db,
+    get_user_question_banks,
+    get_active_question_bank_id,
+    create_question_bank,
+    set_active_question_bank_id,
+    user_can_access_bank,
+    get_question_bank_summary,
+    SYSTEM_QUESTION_BANK_ID,
+    SYSTEM_QUESTION_BANK_NAME,
+)
 from .auth import login_required, get_user_id
 
 bp = Blueprint('load_data', __name__)
@@ -111,7 +121,7 @@ def ensure_stash_dir():
     os.makedirs(IMPORT_STASH_DIR, exist_ok=True)
     return IMPORT_STASH_DIR
 
-def stash_import_payload(questions, errors, filename):
+def stash_import_payload(questions, errors, filename, target_bank):
     """将解析结果保存在临时JSON文件中，并返回唯一ID"""
     ensure_stash_dir()
     job_id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex}"
@@ -119,7 +129,8 @@ def stash_import_payload(questions, errors, filename):
     payload = {
         'questions': questions,
         'errors': errors,
-        'filename': filename
+        'filename': filename,
+        'target_bank': target_bank
     }
     with open(stash_path, 'w', encoding='utf-8') as f:
         json.dump(payload, f, ensure_ascii=False)
@@ -147,7 +158,40 @@ def delete_stashed_payload(job_id):
 @login_required
 def upload():
     """文件上传页面"""
+    user_id = get_user_id()
+    banks = get_user_question_banks(user_id)
+    active_bank_id = get_active_question_bank_id(user_id)
+    target_bank_info = None
+
     if request.method == 'POST':
+        target_mode = request.form.get('target_mode', 'existing')
+        if target_mode == 'existing':
+            existing_bank_id_raw = request.form.get('existing_bank_id', str(active_bank_id or SYSTEM_QUESTION_BANK_ID))
+            try:
+                existing_bank_id = int(existing_bank_id_raw)
+            except (TypeError, ValueError):
+                existing_bank_id = SYSTEM_QUESTION_BANK_ID
+
+            if not user_can_access_bank(user_id, existing_bank_id):
+                flash('无权访问所选题库', 'error')
+                return redirect(request.url)
+
+            target_bank_info = {
+                'mode': 'existing',
+                'bank_id': existing_bank_id
+            }
+        else:
+            new_bank_name = request.form.get('new_bank_name', '').strip()
+            new_bank_desc = request.form.get('new_bank_description', '').strip()
+            if not new_bank_name:
+                flash('请填写新题库名称', 'error')
+                return redirect(request.url)
+            target_bank_info = {
+                'mode': 'new',
+                'name': new_bank_name,
+                'description': new_bank_desc
+            }
+
         # 检查是否有文件
         if 'file' not in request.files:
             flash('请选择要上传的文件', 'error')
@@ -196,7 +240,7 @@ def upload():
             delete_stashed_payload(previous_job_id)
 
             # 保存解析结果到临时文件，仅在session中保存引用ID
-            job_id = stash_import_payload(questions, errors, filename)
+            job_id = stash_import_payload(questions, errors, filename, target_bank_info)
             session['import_job_id'] = job_id
 
             # 清理临时文件
@@ -216,7 +260,10 @@ def upload():
             flash(f'文件处理失败: {str(e)}', 'error')
             return redirect(request.url)
 
-    return render_template('import.html')
+    return render_template('import.html',
+                           banks=banks,
+                           active_bank_id=active_bank_id,
+                           system_bank_name=SYSTEM_QUESTION_BANK_NAME)
 
 @bp.route('/preview', methods=['GET', 'POST'])
 @login_required
@@ -224,15 +271,63 @@ def preview():
     """预览和确认导入页面"""
     job_id = session.get('import_job_id')
     payload = load_stashed_payload(job_id)
+    user_id = get_user_id()
 
     if payload:
         questions = payload.get('questions', [])
         errors = payload.get('errors', [])
         filename = payload.get('filename', '')
+        target_bank_raw = payload.get('target_bank')
     else:
         questions = []
         errors = []
         filename = ''
+        target_bank_raw = None
+
+    def resolve_target_bank(raw_bank):
+        context = {
+            'mode': 'existing',
+            'display_name': SYSTEM_QUESTION_BANK_NAME,
+            'description': '平台预置题库',
+            'bank_id': SYSTEM_QUESTION_BANK_ID,
+            'is_system': True
+        }
+
+        if isinstance(raw_bank, dict):
+            mode = raw_bank.get('mode', 'existing')
+            if mode == 'new':
+                context.update({
+                    'mode': 'new',
+                    'display_name': raw_bank.get('name', '新题库'),
+                    'description': raw_bank.get('description', ''),
+                    'bank_id': None,
+                    'is_system': False
+                })
+            else:
+                try:
+                    bank_id = int(raw_bank.get('bank_id', SYSTEM_QUESTION_BANK_ID))
+                except (TypeError, ValueError):
+                    bank_id = SYSTEM_QUESTION_BANK_ID
+                summary = get_question_bank_summary(bank_id, user_id)
+                if summary:
+                    context.update({
+                        'display_name': summary['name'],
+                        'description': summary['description'],
+                        'bank_id': bank_id,
+                        'is_system': summary['is_system'],
+                        'question_count': summary['question_count'],
+                        'last_updated': summary['last_updated']
+                    })
+                else:
+                    context.update({
+                        'bank_id': bank_id,
+                        'display_name': '未知题库',
+                        'description': '',
+                        'is_system': False
+                    })
+        return context
+
+    target_bank_context = resolve_target_bank(target_bank_raw)
 
     # 检查 session 数据
     if not questions and not errors:
@@ -241,7 +336,29 @@ def preview():
 
     if request.method == 'POST':
         # 执行导入
-        user_id = get_user_id()
+        target_bank_payload = target_bank_raw or {'mode': 'existing', 'bank_id': SYSTEM_QUESTION_BANK_ID}
+        target_mode = target_bank_payload.get('mode', 'existing')
+        bank_name_for_flash = SYSTEM_QUESTION_BANK_NAME
+
+        if target_mode == 'new':
+            bank_name_for_flash = target_bank_payload.get('name', '新题库')
+            bank_description = target_bank_payload.get('description', '')
+            bank_id = create_question_bank(user_id, bank_name_for_flash, bank_description)
+            set_active_question_bank_id(user_id, bank_id)
+        else:
+            try:
+                bank_id = int(target_bank_payload.get('bank_id', SYSTEM_QUESTION_BANK_ID))
+            except (TypeError, ValueError):
+                bank_id = SYSTEM_QUESTION_BANK_ID
+
+            if not user_can_access_bank(user_id, bank_id):
+                flash('无权导入到所选题库', 'error')
+                return redirect(url_for('load_data.upload'))
+
+            summary = get_question_bank_summary(bank_id, user_id)
+            if summary:
+                bank_name_for_flash = summary['name']
+
         conn = get_db()
         c = conn.cursor()
 
@@ -259,8 +376,8 @@ def preview():
                 # 插入题目到数据库
                 c.execute(
                     """INSERT INTO questions
-                       (id, stem, answer, difficulty, qtype, category, options, question_type)
-                       VALUES (?,?,?,?,?,?,?,?)""",
+                       (id, stem, answer, difficulty, qtype, category, options, question_type, question_bank_id)
+                       VALUES (?,?,?,?,?,?,?,?,?)""",
                     (
                         question['id'],
                         question['stem'],
@@ -269,7 +386,8 @@ def preview():
                         question['qtype'],
                         question['category'],
                         json.dumps(options, ensure_ascii=False),
-                        question['qtype']  # 使用qtype作为question_type
+                        question['qtype'],  # 使用qtype作为question_type
+                        bank_id
                     )
                 )
                 success_count += 1
@@ -280,7 +398,7 @@ def preview():
             session.pop('import_job_id', None)
             delete_stashed_payload(job_id)
 
-            flash(f'成功导入 {success_count} 道题目', 'success')
+            flash(f'成功导入 {success_count} 道题目到「{bank_name_for_flash}」', 'success')
             return redirect(url_for('main.index'))
 
         except Exception as e:
@@ -293,7 +411,8 @@ def preview():
     return render_template('import_preview.html',
                           questions=questions,
                           errors=errors,
-                          filename=filename)
+                          filename=filename,
+                          target_bank=target_bank_context)
 
 @bp.route('/cancel', methods=['POST'])
 @login_required
