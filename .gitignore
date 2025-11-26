@@ -30,3 +30,7 @@ gradle-8.4/
 gradle-8.4-bin.zip
 .gradle/
 debug/
+dev-doc/
+.claude/
+.trae/
+CLAUDE.md
