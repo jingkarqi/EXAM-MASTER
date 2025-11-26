@@ -5,6 +5,38 @@ from .auth import login_required, get_user_id, is_logged_in
 
 bp = Blueprint('user', __name__)
 
+
+@bp.route('/me')
+@login_required
+def personal_center():
+    feature_cards = [
+        {
+            'title': '题库管理',
+            'description': '切换、预览或删除题库，掌控当前答题源。',
+            'endpoint': 'question_bank.list_banks',
+            'icon': 'layer-group'
+        },
+        {
+            'title': '错题本',
+            'description': '复习所有错题，进入错题练习模式。',
+            'endpoint': 'user.wrong_questions',
+            'icon': 'times-circle'
+        },
+        {
+            'title': '我的收藏',
+            'description': '管理标签、查看收藏的题目。',
+            'endpoint': 'user.show_favorites',
+            'icon': 'star'
+        },
+        {
+            'title': '答题历史',
+            'description': '回顾最近答题记录和表现趋势。',
+            'endpoint': 'user.show_history',
+            'icon': 'history'
+        }
+    ]
+    return render_template('user-dashboard.html', feature_cards=feature_cards)
+
 @bp.route('/reset_history', methods=['POST'])
 @login_required
 def reset_history():

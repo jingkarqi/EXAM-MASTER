@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}我的 | ExamMaster{% endblock %}
+
+{% block content %}
+    <section class="card">
+        <h1 class="card-title">我的</h1>
+        <p class="card-subtitle">统一管理题库、错题、本地收藏以及答题历史，帮助你专注于复习节奏。</p>
+
+        <div class="dashboard-grid">
+            {% for card in feature_cards %}
+                <a href="{{ url_for(card.endpoint) }}" class="dashboard-card">
+                    <div class="dashboard-card__icon">
+                        <i class="fas fa-{{ card.icon }}"></i>
+                    </div>
+                    <div>
+                        <h3 class="dashboard-card__title">{{ card.title }}</h3>
+                        <p class="dashboard-card__description">{{ card.description }}</p>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    </section>
+{% endblock %}
