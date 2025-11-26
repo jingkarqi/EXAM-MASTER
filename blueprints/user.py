@@ -1,5 +1,6 @@
 import random
 from flask import Blueprint, request, render_template, redirect, url_for, flash, jsonify
+from werkzeug.security import generate_password_hash, check_password_hash
 from database import get_db, fetch_question, is_favorite, get_active_question_bank_id
 from .auth import login_required, get_user_id, is_logged_in
 
@@ -33,9 +34,107 @@ def personal_center():
             'description': '回顾最近答题记录和表现趋势。',
             'endpoint': 'user.show_history',
             'icon': 'history'
+        },
+        {
+            'title': '账号管理',
+            'description': '修改用户名或密码，保护账号安全。',
+            'endpoint': 'user.account_settings',
+            'icon': 'user-cog'
+        },
+        {
+            'title': '退出登录',
+            'description': '结束本次会话，切换至其他账号。',
+            'endpoint': 'auth.logout',
+            'icon': 'sign-out-alt'
         }
     ]
     return render_template('user-dashboard.html', feature_cards=feature_cards)
+
+
+@bp.route('/account')
+@login_required
+def account_settings():
+    user_id = get_user_id()
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT username, created_at FROM users WHERE id=?', (user_id,))
+    user = c.fetchone()
+    conn.close()
+
+    if not user:
+        flash("未找到用户信息，请重新登录", "error")
+        return redirect(url_for('auth.logout'))
+
+    return render_template(
+        'account.html',
+        username=user['username'],
+        created_at=user['created_at']
+    )
+
+
+@bp.route('/account/username', methods=['POST'])
+@login_required
+def update_username_settings():
+    user_id = get_user_id()
+    new_username = (request.form.get('new_username') or '').strip()
+
+    if len(new_username) < 3:
+        flash("新用户名至少需要 3 个字符。", "error")
+        return redirect(url_for('user.account_settings'))
+
+    conn = get_db()
+    c = conn.cursor()
+
+    c.execute('SELECT id FROM users WHERE username=? AND id!=?', (new_username, user_id))
+    exists = c.fetchone()
+    if exists:
+        conn.close()
+        flash("用户名已被占用，请尝试其他名称。", "error")
+        return redirect(url_for('user.account_settings'))
+
+    c.execute('UPDATE users SET username=? WHERE id=?', (new_username, user_id))
+    conn.commit()
+    conn.close()
+    flash("用户名更新成功。", "success")
+    return redirect(url_for('user.account_settings'))
+
+
+@bp.route('/account/password', methods=['POST'])
+@login_required
+def update_password_settings():
+    user_id = get_user_id()
+    current_password = request.form.get('current_password') or ''
+    new_password = request.form.get('new_password') or ''
+    confirm_password = request.form.get('confirm_password') or ''
+
+    if not current_password or not new_password:
+        flash("请输入完整的密码信息。", "error")
+        return redirect(url_for('user.account_settings'))
+
+    if new_password != confirm_password:
+        flash("两次输入的新密码不一致。", "error")
+        return redirect(url_for('user.account_settings'))
+
+    if len(new_password) < 6:
+        flash("新密码至少需要 6 个字符。", "error")
+        return redirect(url_for('user.account_settings'))
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT password_hash FROM users WHERE id=?', (user_id,))
+    user = c.fetchone()
+
+    if not user or not check_password_hash(user['password_hash'], current_password):
+        conn.close()
+        flash("当前密码错误。", "error")
+        return redirect(url_for('user.account_settings'))
+
+    new_hash = generate_password_hash(new_password)
+    c.execute('UPDATE users SET password_hash=? WHERE id=?', (new_hash, user_id))
+    conn.commit()
+    conn.close()
+    flash("密码更新成功。", "success")
+    return redirect(url_for('user.account_settings'))
 
 @bp.route('/reset_history', methods=['POST'])
 @login_required

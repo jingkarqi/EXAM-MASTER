@@ -980,6 +980,54 @@ input[type="radio"] {
   font-size: 0.98rem;
 }
 
+.account-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.account-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.account-panel {
+  background-color: #fff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--border-radius);
+  padding: 1.5rem;
+  box-shadow: var(--box-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.account-panel__title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--gray-800);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.account-panel__description {
+  color: var(--gray-600);
+  line-height: 1.4;
+  font-size: 0.95rem;
+}
+
+.account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.account-form .btn {
+  align-self: flex-start;
+}
+
 /* ====== 登录/注册页面 ====== */
 .auth-container {
   max-width: 400px;
