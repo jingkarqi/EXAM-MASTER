@@ -29,3 +29,4 @@ __pycache__/
 gradle-8.4/
 gradle-8.4-bin.zip
 .gradle/
+debug/

@@ -435,6 +435,9 @@ def set_active_question_bank_id(user_id, bank_id):
     conn = get_db()
     c = conn.cursor()
     c.execute('UPDATE users SET active_question_bank_id=?, current_seq_qid=NULL WHERE id=?', (bank_id, user_id))
+    if c.rowcount == 0:
+        conn.close()
+        raise ValueError("用户信息不存在，请重新登录后重试。")
     conn.commit()
     conn.close()
 

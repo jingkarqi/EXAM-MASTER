@@ -11,8 +11,20 @@ bp = Blueprint('auth', __name__)
 ################################
 
 def is_logged_in():
-    """Check if the user is logged in."""
-    return 'user_id' in session
+    """Check if the user session is valid and the user exists."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return False
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT 1 FROM users WHERE id=?', (user_id,))
+    exists = c.fetchone() is not None
+    conn.close()
+
+    if not exists:
+        session.pop('user_id', None)
+    return exists
 
 def get_user_id():
     """Get the current user's ID from the session."""
