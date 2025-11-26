@@ -192,6 +192,33 @@ def init_db():
         FOREIGN KEY (user_id) REFERENCES users(id)
     )''')
 
+    # AI provider table for managing external AI services
+    c.execute('''CREATE TABLE IF NOT EXISTS ai_providers (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        provider_name TEXT NOT NULL,
+        base_url TEXT NOT NULL,
+        model TEXT NOT NULL,
+        api_key_encrypted TEXT NOT NULL,
+        is_active INTEGER DEFAULT 0,
+        is_valid INTEGER DEFAULT 0,
+        last_verified_at DATETIME,
+        last_error TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id)
+    )''')
+    c.execute('PRAGMA table_info(ai_providers)')
+    ai_columns = [row['name'] for row in c.fetchall()]
+    if 'is_valid' not in ai_columns:
+        c.execute('ALTER TABLE ai_providers ADD COLUMN is_valid INTEGER DEFAULT 0')
+    if 'last_verified_at' not in ai_columns:
+        c.execute('ALTER TABLE ai_providers ADD COLUMN last_verified_at DATETIME')
+    if 'last_error' not in ai_columns:
+        c.execute('ALTER TABLE ai_providers ADD COLUMN last_error TEXT')
+    if 'updated_at' not in ai_columns:
+        c.execute('ALTER TABLE ai_providers ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP')
+
     conn.commit()
 
     # Ensure legacy databases receive new columns / schema updates
@@ -228,6 +255,8 @@ def init_db():
     c.execute('CREATE INDEX IF NOT EXISTS idx_questions_bank ON questions(question_bank_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_history_user_bank ON history(user_id, question_bank_id)')
     c.execute('CREATE INDEX IF NOT EXISTS idx_favorites_user_bank ON favorites(user_id, question_bank_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_ai_providers_user ON ai_providers(user_id)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_ai_providers_active ON ai_providers(user_id, is_active)')
     conn.commit()
 
     # Load questions from CSV if the table is empty
@@ -525,3 +554,53 @@ def delete_question_bank(user_id, bank_id):
     conn.commit()
     conn.close()
     return True
+
+
+def get_ai_providers(user_id):
+    """Return all AI provider configurations for a user."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('''
+        SELECT id, provider_name, base_url, model, is_active, is_valid,
+               last_verified_at, last_error, created_at, updated_at
+        FROM ai_providers
+        WHERE user_id=?
+        ORDER BY created_at DESC
+    ''', (user_id,))
+    rows = c.fetchall()
+    conn.close()
+    providers = []
+    for row in rows:
+        providers.append({
+            'id': row['id'],
+            'provider_name': row['provider_name'],
+            'base_url': row['base_url'],
+            'model': row['model'],
+            'is_active': bool(row['is_active']),
+            'is_valid': bool(row['is_valid']),
+            'last_verified_at': row['last_verified_at'],
+            'last_error': row['last_error'],
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at']
+        })
+    return providers
+
+
+def get_active_ai_provider(user_id):
+    """Return the currently active AI provider for the user."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT * FROM ai_providers WHERE user_id=? AND is_active=1 LIMIT 1', (user_id,))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
+def get_ai_provider(provider_id, user_id):
+    """Return a specific AI provider if it belongs to the user."""
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT * FROM ai_providers WHERE id=? AND user_id=?', (provider_id, user_id))
+    row = c.fetchone()
+    conn.close()
+    return dict(row) if row else None

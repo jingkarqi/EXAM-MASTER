@@ -9,6 +9,8 @@ from database import (
     is_favorite,
     fetch_random_question_ids,
     get_active_question_bank_id,
+    get_active_ai_provider,
+    SYSTEM_QUESTION_BANK_ID,
 )
 from .auth import login_required, get_user_id
 
@@ -41,6 +43,31 @@ def validate_answer_by_type(question_type, user_answer, correct_answer):
         # 默认使用单选题验证逻辑
         return int(user_answer == correct_answer)
 
+
+def build_ai_context(question, user_answer, has_result, has_provider):
+    """组装前端 AI 浮窗所需的上下文。"""
+    if not question:
+        return {
+            'enabled': False,
+            'hasActiveProvider': has_provider,
+            'questionId': None,
+            'questionBankId': SYSTEM_QUESTION_BANK_ID,
+            'hasSubmission': has_result,
+            'userAnswer': user_answer or '',
+            'questionStem': ''
+        }
+
+    return {
+        'enabled': has_provider,
+        'hasActiveProvider': has_provider,
+        'questionId': question['id'],
+        'questionBankId': question.get('question_bank_id', SYSTEM_QUESTION_BANK_ID),
+        'hasSubmission': bool(has_result),
+        'userAnswer': user_answer or '',
+        'questionStem': question.get('stem', ''),
+        'questionType': question.get('question_type') or question.get('type')
+    }
+
 # --- Random & Single Question ---
 
 @bp.route('/random', methods=['GET'])
@@ -48,6 +75,7 @@ def validate_answer_by_type(question_type, user_answer, correct_answer):
 def random_question():
     user_id = get_user_id()
     question_bank_id = get_active_question_bank_id(user_id)
+    has_ai_provider = bool(get_active_ai_provider(user_id))
     qid = random_question_id(user_id, question_bank_id)
     
     conn = get_db()
@@ -60,16 +88,28 @@ def random_question():
     
     if not qid:
         flash("您已完成所有题目！可以重置历史以重新开始。", "info")
-        return render_template('question.html', question=None, answered=answered, total=total)
+        return render_template(
+            'question.html',
+            question=None,
+            answered=answered,
+            total=total,
+            user_answer='',
+            ai_context=build_ai_context(None, '', False, has_ai_provider)
+        )
         
     q = fetch_question(qid, question_bank_id)
     is_fav = is_favorite(user_id, qid, question_bank_id)
+    user_answer_value = ''
     
-    return render_template('question.html', 
-                          question=q, 
-                          answered=answered, 
-                          total=total,
-                          is_favorite=is_fav)
+    return render_template(
+        'question.html',
+        question=q,
+        answered=answered,
+        total=total,
+        is_favorite=is_fav,
+        user_answer=user_answer_value,
+        ai_context=build_ai_context(q, user_answer_value, False, has_ai_provider)
+    )
 
 @bp.route('/question/<qid>', methods=['GET', 'POST'])
 @login_required
@@ -77,6 +117,8 @@ def show_question(qid):
     user_id = get_user_id()
     question_bank_id = get_active_question_bank_id(user_id)
     q = fetch_question(qid, question_bank_id)
+    has_ai_provider = bool(get_active_ai_provider(user_id))
+    user_answer_str = ""
     
     if q is None:
         flash("题目不存在", "error")
@@ -112,12 +154,16 @@ def show_question(qid):
         
         is_fav = is_favorite(user_id, qid, question_bank_id)
         
-        return render_template('question.html',
-                              question=q,
-                              result_msg=result_msg,
-                              answered=answered,
-                              total=total,
-                              is_favorite=is_fav)
+        return render_template(
+            'question.html',
+            question=q,
+            result_msg=result_msg,
+            answered=answered,
+            total=total,
+            is_favorite=is_fav,
+            user_answer=user_answer_str,
+            ai_context=build_ai_context(q, user_answer_str, True, has_ai_provider)
+        )
 
     c.execute('SELECT COUNT(*) AS total FROM questions WHERE question_bank_id=?', (question_bank_id,))
     total = c.fetchone()['total']
@@ -127,11 +173,15 @@ def show_question(qid):
     
     is_fav = is_favorite(user_id, qid, question_bank_id)
 
-    return render_template('question.html',
-                          question=q,
-                          answered=answered,
-                          total=total,
-                          is_favorite=is_fav)
+    return render_template(
+        'question.html',
+        question=q,
+        answered=answered,
+        total=total,
+        is_favorite=is_fav,
+        user_answer=user_answer_str,
+        ai_context=build_ai_context(q, user_answer_str, False, has_ai_provider)
+    )
 
 # --- Search & Filter ---
 
@@ -352,6 +402,7 @@ def show_sequential_question(qid):
     user_id = get_user_id()
     question_bank_id = get_active_question_bank_id(user_id)
     q = fetch_question(qid, question_bank_id)
+    has_ai_provider = bool(get_active_ai_provider(user_id))
     
     if q is None:
         flash("题目不存在", "error")
@@ -424,15 +475,18 @@ def show_sequential_question(qid):
     
     is_fav = is_favorite(user_id, qid, question_bank_id)
     
-    return render_template('question.html',
-                          question=q,
-                          result_msg=result_msg,
-                          next_qid=next_qid,
-                          sequential_mode=True,
-                          user_answer=user_answer_str,
-                          answered=answered,
-                          total=total,
-                          is_favorite=is_fav)
+    return render_template(
+        'question.html',
+        question=q,
+        result_msg=result_msg,
+        next_qid=next_qid,
+        sequential_mode=True,
+        user_answer=user_answer_str,
+        answered=answered,
+        total=total,
+        is_favorite=is_fav,
+        ai_context=build_ai_context(q, user_answer_str, bool(result_msg), has_ai_provider)
+    )
 
 # --- Modes & Exams ---
 

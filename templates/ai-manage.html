@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}AI 功能管理 - ExamMaster{% endblock %}
+
+{% block content %}
+<section class="card">
+    <h1 class="card-title"><i class="fas fa-robot me-1"></i> AI 功能管理</h1>
+    <p class="card-subtitle">配置 OpenAI Chat Completions 兼容服务，用于错题解析与思路提示。</p>
+
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i>
+        当前仅支持与 OpenAI Chat Completions API 协议兼容的供应商（如 OpenAI、DeepSeek、Kimi 等）。保存配置后系统会自动进行连通性验证。
+    </div>
+
+    <div class="ai-manage-grid">
+        <div class="card">
+            <h2 class="card-title">新增服务提供商</h2>
+            <form method="post" action="{{ url_for('ai.create_provider') }}" class="form">
+                <div class="form-group">
+                    <label class="form-label">服务名称</label>
+                    <input type="text" name="provider_name" class="form-control" placeholder="如：OpenAI 主账号" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">基础 URL</label>
+                    <input type="url" name="base_url" class="form-control" placeholder="https://api.openai.com" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">模型 ID</label>
+                    <input type="text" name="model" class="form-control" placeholder="gpt-4.1, deepseek-chat 等" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">API 密钥</label>
+                    <input type="password" name="api_key" class="form-control" placeholder="sk-..." required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-save"></i> 保存并验证
+                </button>
+            </form>
+        </div>
+
+        <div class="card">
+            <h2 class="card-title">当前配置</h2>
+            {% if providers %}
+                <div class="ai-provider-list">
+                    {% for provider in providers %}
+                        <div class="ai-provider-card {% if provider.is_active %}active{% endif %}">
+                            <div class="ai-provider-header">
+                                <div>
+                                    <h3>{{ provider.provider_name }}</h3>
+                                    <p class="text-muted mb-1">{{ provider.base_url }}</p>
+                                </div>
+                                {% if provider.is_active %}
+                                    <span class="badge badge-success"><i class="fas fa-check-circle"></i> 已激活</span>
+                                {% else %}
+                                    <span class="badge badge-secondary">未激活</span>
+                                {% endif %}
+                            </div>
+                            <ul class="ai-provider-meta">
+                                <li><strong>模型：</strong>{{ provider.model }}</li>
+                                <li>
+                                    <strong>验证状态：</strong>
+                                    {% if provider.is_valid %}
+                                        <span class="text-success"><i class="fas fa-circle-check"></i> 可用</span>
+                                    {% else %}
+                                        <span class="text-danger"><i class="fas fa-triangle-exclamation"></i> 未通过</span>
+                                        {% if provider.last_error %}<div class="text-danger small">{{ provider.last_error }}</div>{% endif %}
+                                    {% endif %}
+                                </li>
+                                {% if provider.last_verified_at %}
+                                    <li><strong>最近验证：</strong>{{ provider.last_verified_at }}</li>
+                                {% endif %}
+                            </ul>
+                            <div class="ai-provider-actions">
+                                {% if not provider.is_active %}
+                                    <form method="post" action="{{ url_for('ai.activate_provider', provider_id=provider.id) }}">
+                                        <button type="submit" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-bolt"></i> 激活
+                                        </button>
+                                    </form>
+                                {% endif %}
+                                <form method="post" action="{{ url_for('ai.validate_provider', provider_id=provider.id) }}">
+                                    <button type="submit" class="btn btn-outline-info btn-sm">
+                                        <i class="fas fa-sync"></i> 验证
+                                    </button>
+                                </form>
+                                <form method="post" action="{{ url_for('ai.delete_provider', provider_id=provider.id) }}" onsubmit="return confirm('确认删除该配置？');">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="fas fa-trash"></i> 删除
+                                    </button>
+                                </form>
+                            </div>
+                            <details class="ai-provider-edit">
+                                <summary><i class="fas fa-pen-to-square"></i> 编辑配置</summary>
+                                <form method="post" action="{{ url_for('ai.update_provider', provider_id=provider.id) }}">
+                                    <div class="form-group">
+                                        <label class="form-label">服务名称</label>
+                                        <input type="text" name="provider_name" class="form-control" value="{{ provider.provider_name }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">基础 URL</label>
+                                        <input type="url" name="base_url" class="form-control" value="{{ provider.base_url }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">模型 ID</label>
+                                        <input type="text" name="model" class="form-control" value="{{ provider.model }}" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">API 密钥（留空则保持不变）</label>
+                                        <input type="password" name="api_key" class="form-control" placeholder="****">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                                        <i class="fas fa-save"></i> 保存修改
+                                    </button>
+                                </form>
+                            </details>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <i class="fas fa-database mb-3" style="font-size: 2rem;"></i>
+                    <p>尚未添加任何 AI 服务，填写左侧表单即可启用。</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</section>
+{% endblock %}

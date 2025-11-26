@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% set ai_ctx = ai_context|default({'enabled': False}) %}
 
 {% block title %}题目 - ExamMaster{% endblock %}
 
@@ -231,6 +232,44 @@
 </div>
 {% endif %}
 
+{% if question %}
+<div class="ai-fab-container">
+    {% if ai_ctx.enabled %}
+        <button type="button" class="ai-fab" data-ai-trigger>
+            <i class="fas fa-wand-magic-sparkles"></i>
+            <span data-ai-label>{{ 'AI解析' if ai_ctx.hasSubmission else 'AI提示' }}</span>
+        </button>
+    {% else %}
+        <a class="ai-fab disabled" href="{{ url_for('ai.manage') }}">
+            <i class="fas fa-plug-circle-bolt"></i>
+            <span>配置 AI 服务</span>
+        </a>
+    {% endif %}
+</div>
+
+<div class="ai-modal" data-ai-modal hidden>
+    <div class="ai-modal__content">
+        <div class="ai-modal__header">
+            <div>
+                <h3 data-ai-title>{{ 'AI解析' if ai_ctx.hasSubmission else 'AI提示' }}</h3>
+                <p class="ai-modal__subtitle" data-ai-mode-desc>
+                    {{ '解析将包含题目分析、错误点定位与知识点归纳。' if ai_ctx.hasSubmission else '提示仅输出解题思路，不会直接给出答案。' }}
+                </p>
+            </div>
+            <button type="button" class="ai-modal__close" data-ai-close aria-label="关闭">&times;</button>
+        </div>
+        <div class="ai-modal__body">
+            <div class="ai-status" data-ai-status data-state="loading">
+                <span class="ai-loader" aria-hidden="true"></span>
+                <span data-ai-status-text>AI 正在准备中…</span>
+            </div>
+            <pre class="ai-modal__result" data-ai-result></pre>
+            <div class="ai-error d-none" data-ai-error></div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <style>
     .option-label.option-correct {
         background-color: rgba(46, 196, 182, 0.1);
@@ -283,4 +322,14 @@
         }
     }
 </style>
+
+{% block scripts %}
+    {{ super() }}
+    {% if question %}
+        <script>
+            window.__AI_CONTEXT__ = {{ ai_ctx|tojson }};
+        </script>
+        <script src="{{ url_for('static', filename='js/ai-helper.js') }}" defer></script>
+    {% endif %}
+{% endblock %}
 {% endblock %}

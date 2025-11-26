@@ -1,7 +1,7 @@
 import random
 from flask import Blueprint, request, render_template, redirect, url_for, flash, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from database import get_db, fetch_question, is_favorite, get_active_question_bank_id
+from database import get_db, fetch_question, is_favorite, get_active_question_bank_id, get_active_ai_provider
 from .auth import login_required, get_user_id, is_logged_in
 
 bp = Blueprint('user', __name__)
@@ -16,6 +16,12 @@ def personal_center():
             'description': '切换、预览或删除题库，掌控当前答题源。',
             'endpoint': 'question_bank.list_banks',
             'icon': 'layer-group'
+        },
+        {
+            'title': 'AI功能管理',
+            'description': '管理 OpenAI 兼容服务，启用错题解析与提示。',
+            'endpoint': 'ai.manage',
+            'icon': 'robot'
         },
         {
             'title': '错题本',
@@ -208,6 +214,7 @@ def wrong_questions():
 def only_wrong_mode():
     user_id = get_user_id()
     question_bank_id = get_active_question_bank_id(user_id)
+    has_ai_provider = bool(get_active_ai_provider(user_id))
     conn = get_db()
     c = conn.cursor()
     c.execute('SELECT question_id FROM history WHERE user_id=? AND question_bank_id=? AND correct=0',
@@ -224,10 +231,21 @@ def only_wrong_mode():
     qid = random.choice(wrong_ids)
     q = fetch_question(qid, question_bank_id)
     is_fav = is_favorite(user_id, qid, question_bank_id)
+    ai_context = {
+        'enabled': bool(q) and has_ai_provider,
+        'hasActiveProvider': has_ai_provider,
+        'questionId': q['id'] if q else None,
+        'questionBankId': question_bank_id,
+        'hasSubmission': False,
+        'userAnswer': '',
+        'questionStem': q['stem'] if q else ''
+    }
     
     return render_template('question.html', 
                           question=q, 
-                          is_favorite=is_fav)
+                          is_favorite=is_fav,
+                          user_answer='',
+                          ai_context=ai_context)
 
 @bp.route('/favorite/<qid>', methods=['POST'])
 @login_required
