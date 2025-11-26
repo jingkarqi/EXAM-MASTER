@@ -50,7 +50,8 @@
         <!-- 用户操作 -->
         <div class="nav-right">
             <a href="{{ url_for('user.personal_center') }}" class="nav-my-link{% if request.path == url_for('user.personal_center') %} active{% endif %}">
-                <i class="fas fa-user-circle"></i> 我的
+                <i class="fas fa-user-circle" aria-hidden="true"></i>
+                <span class="nav-my-label"> 我的 </span>
             </a>
         </div>
     </nav>
@@ -85,10 +86,10 @@
         <div class="container">
             <p class="footer-text">
                 &copy; {{ current_year|default(2023) }} ExamMaster | 
-                <a href="https://github.com/CiE-XinYuChen/EXAM-MASTER" class="footer-link" target="_blank">
+                <a href="https://github.com/jingkarqi/EXAM-MASTER" class="footer-link" target="_blank">
                     <i class="fab fa-github"></i> GitHub
                 </a> | 
-                <a href="mailto:xinyu-c@outlook.com" class="footer-link">
+                <a href="mailto:soraet2005@outlook.com" class="footer-link">
                     <i class="fas fa-envelope"></i> 联系我们
                 </a>
             </p>

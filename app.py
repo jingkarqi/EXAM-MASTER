@@ -9,7 +9,7 @@ This is the main entry point of the application.
 It initializes the Flask app, loads configuration, sets up the database,
 and registers the blueprints that handle the actual route logic.
 
-Author: ShayneChen (xinyu-c@outlook.com)
+Author: jingkarqi (soraet2005@outlook.com)
 License: MIT
 """
 
