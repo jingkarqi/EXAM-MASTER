@@ -159,7 +159,7 @@ EXAM-MASTER/
 
 ## 🤖 AI 集成指南
 
-1. **在前端配置供应商**：登录 -> “我的” -> “AI 功能管理”，新增 OpenAI/Claude 等兼容接口，填写名称、Base URL、模型、温度等参数。
+1. **在前端配置供应商**：登录 -> “我的” -> “AI 功能管理”，新增 OpenAI 兼容接口，填写名称、Base URL、模型参数。
 2. **安全写入密钥**：前端提交后由 `ai_service.py` 使用 `SECRET_KEY` 加密存储，仅在调用时解密。
 3. **提示词管理**：`prompt/analysis.md` 定义解析模板、`prompt/hint.md` 定义思路提示、`prompt/csv-generator.md` 辅助生成题库内容；调试更新需同步 QA。
 4. **流式输出**：AI 回答实时写入 SSE 流并镜像到 `debug/ai_stream.log`，排障时可回放同一题目的生成轨迹。
@@ -186,7 +186,7 @@ EXAM-MASTER/
 
 ## 🤝 贡献指南
 
-1. Fork 或创建功能分支前，先阅读 `AGENTS.md` 了解编码、测试、Commit/PR 规范。
+1. Fork 或创建功能分支前，先阅读了解编码、测试、Commit/PR 规范。
 2. 命名 Commit 时遵循类似 `feat(quiz): 支持批量抽题` 的 Conventional Commits 语法。
 3. 为新增功能补充自动化测试（`tests/test_<feature>.py`）和/或更新手动验证步骤。
 4. 涉及题库或 AI 提示词的变更，请在 PR 中说明数据来源、更新脚本与对应的 QA 结果。
@@ -195,11 +195,3 @@ EXAM-MASTER/
 ## 📄 许可证
 
 本项目采用 [MIT License](LICENSE)。在商用或二次开发前请保留原版权声明，并妥善处理题库/用户数据的隐私与授权。
-
-## 📬 参考与附录
-
-- `AGENTS.md`：仓库规范、开发与测试准则。
-- `dev-doc/openai-chat.md.txt`：OpenAI 兼容接口调试记录，可用于 AI 服务联调。
-- `prompt/analysis.md`、`prompt/hint.md`、`prompt/csv-generator.md`：AI 提示词模板。
-- `debug/ai_stream.log`：AI 流式日志，回归或报警时记得截取关键片段。
-- 若需更多题库或评测脚本，请探索 `questions_*.csv` 及未来在 `tests/` 目录下提交的自动化用例。
