@@ -25,6 +25,22 @@ bp = Blueprint('load_data', __name__)
 ALLOWED_EXTENSIONS = {'csv', 'txt'}
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 IMPORT_STASH_DIR = os.path.join(tempfile.gettempdir(), 'exam_master_imports')
+CSV_PROMPT_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'prompt', 'csv-generator.md')
+_csv_prompt_cache = None
+
+
+def get_csv_generation_prompt():
+    """读取生成 CSV 的提示词供模板使用"""
+    global _csv_prompt_cache
+    if _csv_prompt_cache is None:
+        try:
+            with open(CSV_PROMPT_FILE, 'r', encoding='utf-8') as prompt_file:
+                _csv_prompt_cache = prompt_file.read().strip()
+        except OSError:
+            _csv_prompt_cache = '提示词文件未找到，请联系管理员。'
+    return _csv_prompt_cache
+
+
 
 def allowed_file(filename):
     """检查文件扩展名是否允许"""
@@ -277,7 +293,8 @@ def upload():
     return render_template('import.html',
                            banks=banks,
                            active_bank_id=active_bank_id,
-                           system_bank_name=SYSTEM_QUESTION_BANK_NAME)
+                           system_bank_name=SYSTEM_QUESTION_BANK_NAME,
+                           csv_generation_prompt=get_csv_generation_prompt())
 
 @bp.route('/preview', methods=['GET', 'POST'])
 @login_required

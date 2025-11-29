@@ -1,15 +1,15 @@
 # Repository Guidelines
 ## Project Structure & Module Organization
-EXAM-MASTER is a Flask monolith rooted at `app.py`, which wires configs, SQLite init, and registers each feature blueprint. Feature logic sits in `blueprints/` (e.g., `quiz.py` for delivery flow, `user.py` for profiles, `ai.py` for AI-driven authoring). HTML templates live in `templates/`, static CSS/JS/assets in `static/`, prompt payloads and AI docs in `prompt/`, and CSV fixtures/tests in the repo root (`questions.csv`, `test_questions.csv`, `TEST_INSTRUCTIONS.md`). Keep helper scripts and experimental notebooks within `dev-doc/` or `debug/` to avoid polluting runtime modules.
+EXAM-MASTER is a Flask monolith rooted at `app.py`, which wires configs, SQLite init, and registers each feature blueprint. Feature logic sits in `blueprints/` (e.g., `quiz.py` for delivery flow, `user.py` for profiles, `ai.py` for AI-driven authoring). HTML templates live in `templates/`, static CSS/JS/assets in `static/`, prompt payloads and AI docs in `prompt/`, and CSV fixtures/tests in the repo root (`questions.csv`, `test_questions.csv`, the multi-blank sample `test_question.csv`, `TEST_INSTRUCTIONS.md`). Keep helper scripts and experimental notebooks within `dev-doc/` or `debug/` to avoid polluting runtime modules. CSV ingestion is centralized in `blueprints/load_data.py`, which now respects the provided题型 so填空/判断行可以省略多余选项且保留括号答案。
 ## Build, Test, and Development Commands
 - `python -m venv .venv && .venv\Scripts\activate` - recommended local isolation.
 - `pip install -r requirements.txt` - installs Flask, requests, cryptography, and related tooling.
 - `python app.py` (or `flask --app app run --debug --port 32220`) - boots the web server and seeds `database.db` from CSV when needed.
 - `sqlite3 database.db ".tables"` - quick schema sanity check after migrations or CSV imports.
 ## Coding Style & Naming Conventions
-Adopt Black-like formatting: 4-space indents, double quotes for user-facing strings, and snake_case for modules, functions, and variables. Blueprints expose a module-level `bp` object; keep route names `<feature>_<action>` to avoid collisions. Keep Jinja blocks and template filenames lowercase with hyphens (`templates/ai-manage.html`). Frontend assets mirror template names inside `static/css` or `static/js`.
+Adopt Black-like formatting: 4-space indents, double quotes for user-facing strings, and snake_case for modules, functions, and variables. Blueprints expose a module-level `bp` object; keep route names `<feature>_<action>` to avoid collisions. Keep Jinja blocks and template filenames lowercase with hyphens (`templates/ai-manage.html`). Frontend assets mirror template names inside `static/css` or `static/js`. Fill-in questions serialize multi-blank answers as `(ans1)(ans2)(ans3)`; update CSV fixtures and history serializers via `parse_fill_answers` / `serialize_user_answer` rather than inventing new formats.
 ## Testing Guidelines
-Automated coverage is minimal today, so start each feature branch by adding pytest cases under `tests/` (mirror blueprint names, e.g., `tests/test_quiz.py`). Name tests `test_<condition>_<expected>()` and structure fixtures around temporary SQLite files. For manual regression, follow `TEST_INSTRUCTIONS.md` to swap in `test_questions.csv`, rebuild `database.db`, and walk judgment/fill-in modes. Hold contributors to >80% statement coverage before merging.
+Automated coverage is minimal today, so start each feature branch by adding pytest cases under `tests/` (mirror blueprint names, e.g., `tests/test_quiz.py`). Name tests `test_<condition>_<expected>()` and structure fixtures around temporary SQLite files. For manual regression, follow `TEST_INSTRUCTIONS.md` to swap in `test_questions.csv`, rebuild `database.db`, and walk judgment/fill-in modes; use `test_question.csv` when you specifically want to exercise multi-blank填空题解析与渲染。Hold contributors to >80% statement coverage before merging.
 ## Commit & Pull Request Guidelines
 Match the existing conventional-commit pattern (`type(scope): summary`), using English scope tags when possible (e.g., `feat(quiz)`, `fix(auth)`, `docs(i18n)`). Commits should be scoped to a single concern and reference related CSV/template changes explicitly in the body. PRs must include: purpose paragraph, testing evidence (commands run, screenshots for UI shifts), database migration notes, and linked issue IDs. Keep branches rebased on `main` and avoid force-push after reviews.
 ## Security & Configuration Tips
@@ -63,7 +63,7 @@ EXAM-MASTER/
 
 ### 2. 题库管理
 - 多题库支持（系统默认 + 自定义题库）
-- CSV 格式题目导入
+- CSV 格式题目导入（`load_data.py` 会按题型校验答案：单/多选必须使用 A-E 选项，判断题答案限定“正确/错误”，填空题可用 `(答案1)(答案2)` 形式且可不提供选项列）
 - 题目分类和难度设置
 
 ### 3. 答题模式
@@ -71,6 +71,7 @@ EXAM-MASTER/
 - **顺序答题**: 按题号顺序练习
 - **考试模式**: 模拟正式考试
 - **定时模式**: 限时答题挑战
+- 填空题会根据正确答案里的括号数量自动生成多个输入框，历史记录也以 `(答1)(答2)` 方式存储
 
 ### 4. AI 辅助功能
 - 答案解析生成
@@ -155,6 +156,7 @@ python app.py
 ### 数据转换工具 (`tools/`)
 - `convert_txt_csv.py`: TXT 转 CSV 格式
 - `convert_gongtongt_txt_to_csv.py`: 共同体题目格式转换
+- `test_question.csv`: 多空填空题示例题库，可用于导入与 UI 回归
 
 ### AI 提示词 (`prompt/`)
 - `analysis.md`: 答案解析提示词

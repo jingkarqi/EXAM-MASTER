@@ -12,6 +12,31 @@
 </div>
 
 <div class="import-container">
+    <div class="prompt-helper card mb-4">
+        <div class="prompt-helper-header">
+            <div>
+                <h3 class="card-title mb-1">
+                    <i class="fas fa-lightbulb"></i>
+                    制作题库提醒
+                </h3>
+                <p class="prompt-helper-desc">还没有符合导入规范的 CSV？复制下方提示词交给任意 AI，即可按题库要求批量生成。</p>
+            </div>
+            <button type="button" class="btn btn-outline-primary" id="togglePromptBtn">
+                <i class="fas fa-eye"></i>
+                查看提示词
+            </button>
+        </div>
+        <div class="prompt-helper-body" id="csvPromptSection" style="display: none;">
+            <div class="prompt-helper-actions">
+                <span class="text-muted">将提示词粘贴到成熟的 AI 产品中，上传你的私人知识库即可生成 CSV。注意修改题目制作需求中的参数。推荐使用深度思考模型，如 Deepseek 等。</span>
+                <button type="button" class="btn btn-secondary" id="copyPromptBtn">
+                    <i class="fas fa-copy"></i>
+                    复制提示词
+                </button>
+            </div>
+            <pre class="prompt-code-block"><code id="csvPromptBlock">{{ csv_generation_prompt | e }}</code></pre>
+        </div>
+    </div>
     <form id="uploadForm" method="post" enctype="multipart/form-data" action="{{ url_for('load_data.upload') }}">
         <!-- 题库选择 -->
         <div class="bank-selection card mb-4">
@@ -114,7 +139,11 @@
                         <li><strong>题号</strong> - 题目唯一标识</li>
                         <li><strong>题干</strong> - 题目内容</li>
                         <li><strong>A, B, C, D, E</strong> - 选项内容</li>
-                        <li><strong>答案</strong> - 正确答案（如 A, AB, C）</li>
+                        <li><strong>答案</strong>
+                            <br>- 选择题答案如 A, AB, C
+                            <br>- 填空题多空答案使用英文括号 <code>()</code>，如 <code>(答案1)(答案2)</code>
+                            <br>- 判断题答案为 <code>正确</code> 或 <code>错误</code>
+                        </li>
                         <li><strong>难度</strong> - 题目难度</li>
                         <li><strong>题型</strong> - 单选题/多选题/判断题/填空题</li>
                         <li><strong>类别</strong> - 题目分类</li>
@@ -188,6 +217,57 @@
 
     .bank-selection .form-group {
         margin-bottom: 0.75rem;
+    }
+
+    .prompt-helper {
+        border: 1px solid var(--gray-200, #e5e7eb);
+        border-left: 4px solid var(--primary-color, #4c6ef5);
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        background: #fff;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+    }
+
+    .prompt-helper-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .prompt-helper-desc {
+        margin: 0;
+        color: var(--gray-600, #6b7280);
+        font-size: 0.95rem;
+    }
+
+    .prompt-helper-body {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px dashed var(--gray-200, #e5e7eb);
+    }
+
+    .prompt-helper-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.75rem;
+    }
+
+    .prompt-code-block {
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        max-height: 340px;
+        overflow: auto;
+        font-family: 'Fira Code', 'Consolas', monospace;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+        word-break: break-word;
     }
 </style>
 
@@ -326,5 +406,72 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
     console.log('提交表单，文件:', formFileInput.files[0].name);
 });
+
+// 提示词展开/复制功能
+const promptToggleBtn = document.getElementById('togglePromptBtn');
+const promptSection = document.getElementById('csvPromptSection');
+const promptBlock = document.getElementById('csvPromptBlock');
+const copyPromptBtn = document.getElementById('copyPromptBtn');
+
+function updatePromptToggleButton(isOpen) {
+    if (!promptToggleBtn) return;
+    promptToggleBtn.innerHTML = isOpen
+        ? '<i class="fas fa-eye-slash"></i> 收起提示词'
+        : '<i class="fas fa-eye"></i> 查看提示词';
+}
+
+if (promptToggleBtn && promptSection) {
+    updatePromptToggleButton(false);
+    promptToggleBtn.addEventListener('click', () => {
+        const isHidden = promptSection.style.display === 'none' || promptSection.style.display === '';
+        promptSection.style.display = isHidden ? 'block' : 'none';
+        updatePromptToggleButton(isHidden);
+    });
+}
+
+if (copyPromptBtn && promptBlock) {
+    copyPromptBtn.addEventListener('click', () => {
+        const promptText = promptBlock.textContent;
+        copyPromptToClipboard(promptText).then(() => {
+            copyPromptBtn.innerHTML = '<i class="fas fa-check"></i> 已复制';
+            copyPromptBtn.classList.remove('btn-secondary');
+            copyPromptBtn.classList.add('btn-success');
+            setTimeout(() => {
+                copyPromptBtn.innerHTML = '<i class="fas fa-copy"></i> 复制提示词';
+                copyPromptBtn.classList.remove('btn-success');
+                copyPromptBtn.classList.add('btn-secondary');
+            }, 1600);
+        }).catch(() => {
+            alert('复制失败，请手动选择并复制提示词内容');
+        });
+    });
+}
+
+function copyPromptToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve, reject) => {
+        try {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            textarea.style.left = '-9999px';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+            const result = document.execCommand('copy');
+            document.body.removeChild(textarea);
+            if (result) {
+                resolve();
+            } else {
+                reject(new Error('execCommand failed'));
+            }
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
 </script>
 {% endblock %}
