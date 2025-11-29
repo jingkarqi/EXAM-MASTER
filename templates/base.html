@@ -36,6 +36,9 @@
             <a href="{{ url_for('quiz.random_question') }}" class="nav-link{% if request.path == url_for('quiz.random_question') %} active{% endif %}">
                 <i class="fas fa-random"></i> 随机答题
             </a>
+            <a href="{{ url_for('quiz.study_mode') }}" class="nav-link{% if request.path == url_for('quiz.study_mode') %} active{% endif %}">
+                <i class="fas fa-brain"></i> 背题模式
+            </a>
             <a href="{{ url_for('quiz.search') }}" class="nav-link{% if request.path == url_for('quiz.search') %} active{% endif %}">
                 <i class="fas fa-search"></i> 搜索题目
             </a>

@@ -1,0 +1,428 @@
+{% extends 'base.html' %}
+
+{% block title %}背题模式 - ExamMaster{% endblock %}
+
+{% block content %}
+<div class="study-mode-page">
+    <div class="card study-hero">
+        <div>
+            <h1 class="study-title">
+                <i class="fas fa-lightbulb"></i> 背题模式
+            </h1>
+            <p class="study-subtitle">一次性查看多道题目与答案，快速记忆、过一遍知识点。</p>
+        </div>
+        <div class="study-hero-meta">
+            <span class="meta-pill">{{ mode_label }}</span>
+            <span class="meta-pill">{{ total }} 道题</span>
+        </div>
+    </div>
+
+    <div class="card study-controls">
+        <form method="get" class="study-filter-form">
+            <input type="hidden" name="page" value="1">
+            {% if order_mode == 'random' and shuffle_seed %}
+                <input type="hidden" name="shuffle_seed" value="{{ shuffle_seed }}">
+            {% endif %}
+            <div class="filter-grid">
+                <div class="form-group">
+                    <label for="orderSelect">背题顺序</label>
+                    <select id="orderSelect" name="order" class="form-control">
+                        <option value="sequential" {% if order_mode == 'sequential' %}selected{% endif %}>顺序背题（按题号）</option>
+                        <option value="random" {% if order_mode == 'random' %}selected{% endif %}>乱序背题（随机排序）</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="perPageSelect">每页题目数量</label>
+                    <select id="perPageSelect" name="per_page" class="form-control">
+                        {% for size in per_page_options %}
+                            <option value="{{ size }}" {% if per_page == size %}selected{% endif %}>{{ size }} 题</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="filter-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-rotate"></i> 应用设置
+                </button>
+            </div>
+        </form>
+        {% if order_mode == 'random' %}
+            <form method="get" class="reshuffle-form">
+                <input type="hidden" name="order" value="random">
+                <input type="hidden" name="per_page" value="{{ per_page }}">
+                <input type="hidden" name="page" value="1">
+                <button type="submit" class="btn btn-outline-secondary">
+                    <i class="fas fa-shuffle"></i> 重新乱序
+                </button>
+            </form>
+        {% endif %}
+    </div>
+
+    {% if total %}
+        <div class="card study-summary">
+            <div>
+                <strong>{{ mode_label }}</strong> · 本页显示 <strong>{{ display_start }}</strong> - <strong>{{ display_end }}</strong> / {{ total }} 题 · 每页 {{ per_page }} 题
+            </div>
+            <div class="summary-note">答案已展开，可直接背诵或对答案。</div>
+        </div>
+
+        <div class="study-grid">
+            {% for q in questions %}
+                <section class="study-card">
+                    <div class="study-card__header">
+                        <div class="study-card__title">
+                            <span class="study-card__index">题 {{ q.id }}</span>
+                            {% if q.question_type %}
+                                <span class="badge badge-info">{{ q.question_type }}</span>
+                            {% endif %}
+                            {% if q.difficulty %}
+                                <span class="badge {% if q.difficulty == '简单' %}badge-success{% elif q.difficulty == '中等' %}badge-warning{% else %}badge-danger{% endif %}">
+                                    {{ q.difficulty }}
+                                </span>
+                            {% endif %}
+                            {% if q.category %}
+                                <span class="badge badge-secondary">{{ q.category }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="study-card__stem">{{ q.stem }}</div>
+
+                    {% if q.options %}
+                        {% set correct_keys = q.answer %}
+                        <ul class="study-options">
+                            {% for opt_key, opt_val in q.options|dictsort %}
+                                {% set is_correct = opt_key in correct_keys %}
+                                <li class="{% if is_correct %}correct-option{% endif %}">
+                                    <span class="option-key">{{ opt_key }}.</span>
+                                    <span class="option-text">{{ opt_val }}</span>
+                                    {% if is_correct %}
+                                        <span class="option-correct-indicator"><i class="fas fa-check"></i></span>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+
+                    <div class="study-answer">
+                        <div class="answer-label">
+                            <i class="fas fa-check-circle"></i> 正确答案
+                        </div>
+                        <div class="answer-content">
+                            {% if q.question_type == '填空题' and q.fill_answers %}
+                                {% for ans in q.fill_answers %}
+                                    <span class="fill-chip">空 {{ loop.index }}：{{ ans }}</span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="answer-text">{{ q.answer }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </section>
+            {% endfor %}
+        </div>
+
+        {% if total_pages > 1 %}
+            <div class="study-pagination">
+                <a class="btn btn-outline-primary {% if page == 1 %}disabled{% endif %}"
+                   href="{{ url_for('quiz.study_mode', page=1, **pagination_params) }}">
+                    <i class="fas fa-angles-left"></i>
+                </a>
+                <a class="btn btn-outline-primary {% if page == 1 %}disabled{% endif %}"
+                   href="{{ url_for('quiz.study_mode', page=page-1 if page > 1 else 1, **pagination_params) }}">
+                    <i class="fas fa-angle-left"></i>
+                </a>
+
+                {% set start_page = page - 2 %}
+                {% if start_page < 1 %}{% set start_page = 1 %}{% endif %}
+                {% set end_page = page + 2 %}
+                {% if end_page > total_pages %}{% set end_page = total_pages %}{% endif %}
+
+                <div class="page-numbers">
+                    {% for num in range(start_page, end_page + 1) %}
+                        <a href="{{ url_for('quiz.study_mode', page=num, **pagination_params) }}"
+                           class="page-chip {% if num == page %}active{% endif %}">
+                            {{ num }}
+                        </a>
+                    {% endfor %}
+                </div>
+
+                <a class="btn btn-outline-primary {% if page == total_pages %}disabled{% endif %}"
+                   href="{{ url_for('quiz.study_mode', page=page+1 if page < total_pages else total_pages, **pagination_params) }}">
+                    <i class="fas fa-angle-right"></i>
+                </a>
+                <a class="btn btn-outline-primary {% if page == total_pages %}disabled{% endif %}"
+                   href="{{ url_for('quiz.study_mode', page=total_pages, **pagination_params) }}">
+                    <i class="fas fa-angles-right"></i>
+                </a>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="card empty-study-state">
+            <i class="fas fa-box-open"></i>
+            <h3>当前题库暂无题目</h3>
+            <p>请先导入或创建题库，然后就可以使用背题模式了。</p>
+            <div class="empty-actions">
+                <a href="{{ url_for('load_data.upload') }}" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> 导入题库
+                </a>
+                <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-arrow-left"></i> 返回首页
+                </a>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<style>
+    .study-mode-page {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    .study-hero {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1.5rem 2rem;
+    }
+
+    .study-title {
+        font-size: 1.75rem;
+        font-weight: 700;
+        margin: 0 0 0.5rem 0;
+    }
+
+    .study-subtitle {
+        margin: 0;
+        color: var(--gray-600);
+    }
+
+    .study-hero-meta {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .meta-pill {
+        font-weight: 600;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        background: var(--gray-100);
+        color: var(--gray-700);
+    }
+
+    .study-controls {
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .study-filter-form {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .filter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+    }
+
+    .filter-actions {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .reshuffle-form {
+        display: flex;
+        justify-content: flex-start;
+    }
+
+    .study-summary {
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .summary-note {
+        color: var(--gray-600);
+        font-size: 0.95rem;
+    }
+
+    .study-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .study-card {
+        padding: 1.5rem;
+        border-radius: var(--border-radius);
+        background: #fff;
+        box-shadow: var(--box-shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .study-card__title {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .study-card__index {
+        font-weight: 700;
+        color: var(--primary-color);
+        margin-right: 0.5rem;
+    }
+
+    .study-card__stem {
+        font-size: 1rem;
+        line-height: 1.6;
+        color: var(--gray-800);
+    }
+
+    .study-options {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .study-options li {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        padding: 0.35rem 0.5rem;
+        border-radius: var(--border-radius);
+    }
+
+    .option-key {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .study-answer {
+        background: var(--gray-100);
+        border-radius: var(--border-radius);
+        padding: 0.75rem 1rem;
+        border-left: 4px solid var(--success-color);
+    }
+
+    .study-options li.correct-option {
+        background: rgba(46, 196, 182, 0.15);
+        border-left: 4px solid var(--success-color);
+    }
+
+    .option-correct-indicator {
+        color: var(--success-color);
+        margin-left: auto;
+    }
+
+    .answer-label {
+        font-weight: 600;
+        color: var(--success-color);
+        margin-bottom: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+
+    .answer-content {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        color: var(--gray-800);
+    }
+
+    .fill-chip {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 0.2rem 0.6rem;
+        border: 1px solid var(--gray-200);
+        font-size: 0.95rem;
+    }
+
+    .study-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+    }
+
+    .study-pagination .btn.disabled {
+        pointer-events: none;
+        opacity: 0.5;
+    }
+
+    .page-numbers {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .page-chip {
+        padding: 0.4rem 0.85rem;
+        border-radius: 999px;
+        border: 1px solid var(--primary-color);
+        color: var(--primary-color);
+        font-weight: 600;
+        text-decoration: none;
+    }
+
+    .page-chip.active {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .empty-study-state {
+        text-align: center;
+        padding: 2rem;
+    }
+
+    .empty-study-state i {
+        font-size: 3rem;
+        color: var(--primary-color);
+        margin-bottom: 1rem;
+    }
+
+    .empty-actions {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .study-hero {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .study-hero-meta {
+            width: 100%;
+            justify-content: flex-start;
+            flex-wrap: wrap;
+        }
+
+        .study-card {
+            padding: 1.25rem;
+        }
+    }
+</style>
+{% endblock %}

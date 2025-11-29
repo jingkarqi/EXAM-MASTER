@@ -1,226 +1,255 @@
 # Repository Guidelines
-## Project Structure & Module Organization
-EXAM-MASTER is a Flask monolith rooted at `app.py`, which wires configs, SQLite init, and registers each feature blueprint. Feature logic sits in `blueprints/` (e.g., `quiz.py` for delivery flow, `user.py` for profiles, `ai.py` for AI-driven authoring). HTML templates live in `templates/`, static CSS/JS/assets in `static/`, prompt payloads and AI docs in `prompt/`, and CSV fixtures/tests in the repo root (`questions.csv`, `test_questions.csv`, the multi-blank sample `test_question.csv`, `TEST_INSTRUCTIONS.md`). Keep helper scripts and experimental notebooks within `dev-doc/` or `debug/` to avoid polluting runtime modules. CSV ingestion is centralized in `blueprints/load_data.py`, which now respects the provided题型 so填空/判断行可以省略多余选项且保留括号答案。
-## Build, Test, and Development Commands
-- `python -m venv .venv && .venv\Scripts\activate` - recommended local isolation.
-- `pip install -r requirements.txt` - installs Flask, requests, cryptography, and related tooling.
-- `python app.py` (or `flask --app app run --debug --port 32220`) - boots the web server and seeds `database.db` from CSV when needed.
-- `sqlite3 database.db ".tables"` - quick schema sanity check after migrations or CSV imports.
-## Coding Style & Naming Conventions
-Adopt Black-like formatting: 4-space indents, double quotes for user-facing strings, and snake_case for modules, functions, and variables. Blueprints expose a module-level `bp` object; keep route names `<feature>_<action>` to avoid collisions. Keep Jinja blocks and template filenames lowercase with hyphens (`templates/ai-manage.html`). Frontend assets mirror template names inside `static/css` or `static/js`. Fill-in questions serialize multi-blank answers as `(ans1)(ans2)(ans3)`; update CSV fixtures and history serializers via `parse_fill_answers` / `serialize_user_answer` rather than inventing new formats.
-## Testing Guidelines
-Automated coverage is minimal today, so start each feature branch by adding pytest cases under `tests/` (mirror blueprint names, e.g., `tests/test_quiz.py`). Name tests `test_<condition>_<expected>()` and structure fixtures around temporary SQLite files. For manual regression, follow `TEST_INSTRUCTIONS.md` to swap in `test_questions.csv`, rebuild `database.db`, and walk judgment/fill-in modes; use `test_question.csv` when you specifically want to exercise multi-blank填空题解析与渲染。Hold contributors to >80% statement coverage before merging.
-## Commit & Pull Request Guidelines
-Match the existing conventional-commit pattern (`type(scope): summary`), using English scope tags when possible (e.g., `feat(quiz)`, `fix(auth)`, `docs(i18n)`). Commits should be scoped to a single concern and reference related CSV/template changes explicitly in the body. PRs must include: purpose paragraph, testing evidence (commands run, screenshots for UI shifts), database migration notes, and linked issue IDs. Keep branches rebased on `main` and avoid force-push after reviews.
-## Security & Configuration Tips
-Never commit real secrets; override `Config.SECRET_KEY`, database paths, and API tokens via environment variables or `.env` ignored by Git. When working with `database.db`, use throwaway copies for debugging and scrub any learner data before attaching logs to issues. Review blueprint endpoints for authentication decorators and ensure new routes default to login protection.
 
+## Project Structure & Module Organization
+EXAM-MASTER runs as a Flask app from `app.py`, which loads `Config` and registers the feature blueprints (`main`, `auth`, `quiz`, `user`, `load_data`, `question_bank`, `ai`). Domain helpers sit beside them, while persistence lives in `database.py` and the CSV banks (`questions.csv`, `ds题库.csv`, fixtures noted in `TEST_INSTRUCTIONS.md`) that hydrate `database.db`. Front-end templates and assets live under `templates/` and `static/`, AI prompt files sit in `prompt/`, debug traces land in `debug/ai_stream.log`, and CSV conversion scripts stay in `tools/`.
+
+## Build, Test, and Development Commands
+- `python -m venv .venv && .\.venv\Scripts\activate`: create or enter the repo-local virtualenv.
+- `pip install -r requirements.txt`: install Flask, requests, cryptography, and other runtime dependencies.
+- `python app.py` or `set FLASK_APP=app && flask run --debug --port 32220`: start the server; the first run invokes `database.init_db()`.
+- After editing CSV data, delete `database.db` then relaunch (or run `python -c "from database import init_db; init_db()"` inside `flask shell`) to reload the schema.
+
+## Coding Style & Naming Conventions
+Use PEP 8, 4-space indentation, and `snake_case` for functions and routes; keep classes like `Config` in UpperCamelCase. Each blueprint file exposes a `bp` instance and prefixes route handlers with the feature (`quiz_start`, `quiz_submit`). Save templates as lowercase_with_underscores inside feature folders, mirror that layout in `static/`, and keep JSON keys in English while allowing bilingual question text.
+
+## Testing Guidelines
+Place automated suites in `tests/`, naming files `test_<feature>.py`, and run everything via `python -m unittest discover -s tests -p "test_*.py"`. Follow `TEST_INSTRUCTIONS.md` for manual QA: replace `questions.csv` with `test_questions.csv`, remove `database.db`, and restart to validate judgment and fill-in flows. Record AI-hint regressions by replaying representative items and watching `debug/ai_stream.log` for errors.
+
+## Commit & Pull Request Guidelines
+Commits follow a Conventional Commits flavor such as `feat(import): 添加CSV生成提示词功能`, so keep the `type(scope): summary` skeleton, use imperative verbs, and mention the module touched. Pull requests should summarize the change, link its issue or task, document data migrations (CSV swaps, SQL scripts), attach screenshots for UI or AI updates, and list the tests you ran (`python -m unittest`, manual quiz paths, CSV reload steps).
+
+## Security & Configuration Tips
+Export `SECRET_KEY` before running so `ai_service.py` can encrypt downstream API tokens; never store raw provider keys in Git. Treat `database.db` as disposable dev data, purge `debug/ai_stream.log` before sharing, scrub new CSV banks for sensitive content, and keep environment-specific overrides in real environment variables instead of hard-coding them.
 ---
-# EXAM-MASTER 项目文档
+# EXAM-MASTER - 在线考试系统
 
 ## 项目概述
 
-EXAM-MASTER 是一个基于 Flask 的在线考试系统，提供完整的题目管理、答题练习和 AI 辅助功能。该系统支持多种题型（单选题、多选题、判断题、填空题），具备用户认证、题库管理、考试模式、统计分析等功能。
+EXAM-MASTER 是一个基于 Flask 的现代化在线考试系统，支持多种题型、AI 辅助功能和多题库管理。系统采用模块化架构，提供完整的用户管理、题库管理和考试功能。
 
 ## 技术栈
 
-- **后端框架**: Flask 2.3.3
-- **数据库**: SQLite3
-- **前端**: HTML5, CSS3, JavaScript
-- **AI 集成**: 支持外部 AI 服务（OpenAI API 兼容）
-- **加密**: cryptography 43.0.1
-
-## 项目结构
-
-```
-EXAM-MASTER/
-├── app.py                 # 主应用入口
-├── config.py              # 配置文件
-├── database.py            # 数据库操作模块
-├── ai_service.py          # AI 服务集成模块
-├── requirements.txt       # Python 依赖
-├── blueprints/            # Flask 蓝图模块
-│   ├── main.py           # 主页路由
-│   ├── auth.py           # 用户认证
-│   ├── quiz.py           # 答题功能
-│   ├── user.py           # 用户管理
-│   ├── load_data.py      # 数据导入
-│   ├── question_bank.py  # 题库管理
-│   └── ai.py             # AI 功能
-├── templates/            # HTML 模板
-├── static/              # 静态资源
-├── prompt/              # AI 提示词
-├── tools/               # 数据转换工具
-└── debug/               # 调试日志
-```
+- **后端**: Python 3.8+ + Flask 2.3.3
+- **数据库**: SQLite
+- **前端**: HTML5 + CSS3 + JavaScript (Bootstrap 样式)
+- **AI 集成**: 支持多种 AI 提供商（OpenAI 兼容接口）
+- **加密**: Cryptography (API 密钥加密存储)
 
 ## 核心功能
 
-### 1. 用户系统
+### 1. 用户管理系统
 - 用户注册/登录
-- 会话管理
-- 个人资料管理
+- 基于 Session 的认证
+- 用户权限管理
+- 个人信息管理
 
 ### 2. 题库管理
-- 多题库支持（系统默认 + 自定义题库）
-- CSV 格式题目导入（`load_data.py` 会按题型校验答案：单/多选必须使用 A-E 选项，判断题答案限定“正确/错误”，填空题可用 `(答案1)(答案2)` 形式且可不提供选项列）
-- 题目分类和难度设置
+- **多题库支持**: 系统默认题库 + 用户自定义题库
+- **题型支持**:
+  - 单选题 (A/B/C/D/E)
+  - 多选题 (A/B/C/D/E)
+  - 判断题 (正确/错误)
+  - 填空题 (支持多空格)
+- **题库导入**: CSV 格式题库导入
+- **题库预览**: 支持题库内容预览
+- **题库管理**: 创建、删除、切换题库
 
-### 3. 答题模式
-- **随机答题**: 随机抽取未答过的题目
-- **顺序答题**: 按题号顺序练习
-- **考试模式**: 模拟正式考试
-- **定时模式**: 限时答题挑战
-- 填空题会根据正确答案里的括号数量自动生成多个输入框，历史记录也以 `(答1)(答2)` 方式存储
+### 3. 答题功能
+- **随机答题**: 避免重复答题
+- **顺序答题**: 按题号顺序答题
+- **答题历史**: 完整记录答题历史
+- **收藏功能**: 标记重要题目
+- **统计分析**: 答题准确率、分类统计
 
-### 4. AI 辅助功能
-- 答案解析生成
-- 答题提示提供
-- 支持多种 AI 服务提供商
-- API 密钥加密存储
+### 4. 考试模式
+- **定时考试**: 设置考试时间限制
+- **批量答题**: 随机抽取指定数量题目
+- **成绩统计**: 自动计算分数和排名
+- **考试历史**: 完整的考试记录
 
-### 5. 数据分析
-- 答题历史记录
-- 正确率统计
-- 错题收藏
-- 学习进度跟踪
+### 5. AI 助手功能
+- **题目解析**: AI 生成详细的题目解析
+- **思路提示**: 提供循序渐进的解题思路
+- **流式响应**: 实时 AI 回答流
+- **多提供商支持**: 支持 OpenAI、Claude 等多种 AI 服务
+- **API 管理**: 安全的 API 密钥加密存储
 
-## 数据库设计
+## 项目架构
 
-### 主要表结构
-- **questions**: 题目数据（支持多题库）
-- **users**: 用户信息
-- **history**: 答题历史
-- **favorites**: 收藏题目
-- **exam_sessions**: 考试会话
-- **question_banks**: 题库信息
-- **ai_providers**: AI 服务配置
-
-### 支持的题型
-- 单选题
-- 多选题
-- 判断题
-- 填空题
-
-## 安装和运行
-
-### 环境要求
-- Python 3.7+
-- pip 包管理器
-
-### 安装步骤
-```bash
-# 1. 克隆项目
-git clone https://github.com/jingkarqi/EXAM-MASTER.git
-cd EXAM-MASTER
-
-# 2. 安装依赖
-pip install -r requirements.txt
-
-# 3. 启动应用
-python app.py
+### 目录结构
+```
+EXAM-MASTER/
+├── app.py                    # 应用入口文件
+├── config.py                 # 配置文件
+├── database.py              # 数据库操作模块
+├── ai_service.py            # AI 服务集成
+├── requirements.txt         # Python 依赖
+├── blueprints/              # Flask 蓝图模块
+│   ├── auth.py             # 用户认证
+│   ├── main.py             # 主要路由
+│   ├── quiz.py             # 答题功能
+│   ├── user.py             # 用户管理
+│   ├── question_bank.py    # 题库管理
+│   ├── load_data.py        # 数据导入
+│   └── ai.py               # AI 功能
+├── templates/              # HTML 模板
+│   ├── base.html           # 基础模板
+│   ├── index.html          # 首页
+│   ├── exam.html           # 考试页面
+│   ├── ai-manage.html      # AI 管理
+│   └── ...                 # 其他模板
+├── static/                 # 静态资源
+│   ├── style.css           # 样式文件
+│   ├── js/                 # JavaScript 文件
+│   └── load_data.js        # 数据加载脚本
+├── prompt/                 # AI 提示词
+│   ├── analysis.md         # 题目解析提示词
+│   └── hint.md             # 题目提示提示词
+├── tools/                  # 工具脚本
+└── debug/                  # 调试日志
 ```
 
-### 访问地址
-- 本地访问: http://localhost:32220
-- 外部访问: http://[你的IP]:32220
+### 核心模块
 
-## 配置说明
+#### 数据库设计 (database.py)
+- **users**: 用户信息表
+- **questions**: 题目表（支持多题库）
+- **history**: 答题历史表
+- **favorites**: 收藏表
+- **exam_sessions**: 考试会话表
+- **question_banks**: 题库表
+- **ai_providers**: AI 提供商配置表
 
-### 环境变量
-- `SECRET_KEY`: Flask 应用密钥（生产环境必须设置）
+#### AI 服务 (ai_service.py)
+- **API 密钥加密**: 基于 SECRET_KEY 的安全加密
+- **多提供商支持**: 统一的接口适配不同 AI 服务
+- **流式响应**: 支持流式 AI 回答
+- **连接验证**: 自动验证 API 连接状态
+- **调试日志**: 完整的 AI 交互日志记录
 
-### 数据文件
-- `questions.csv`: 默认题库文件
-- `database.db`: SQLite 数据库文件（自动生成）
+#### 蓝图模块 (blueprints/)
+- **auth.py**: 用户注册、登录、认证
+- **main.py**: 主页、错误处理、文件下载
+- **quiz.py**: 答题逻辑、历史记录、收藏
+- **user.py**: 用户信息、个人设置
+- **question_bank.py**: 题库管理、导入导出
+- **load_data.py**: CSV 数据导入处理
+- **ai.py**: AI 功能管理、API 调用
 
-## 开发规范
+## 快速开始
 
-### 代码结构
-- 使用 Flask 蓝图组织路由
-- 数据库操作集中在 `database.py`
-- AI 服务功能独立封装在 `ai_service.py`
+### 环境要求
+- Python 3.8+
+- 必要的 Python 包（见 requirements.txt）
 
-### 安全实践
-- 密码使用 Werkzeug 安全哈希
-- API 密钥使用 Fernet 加密存储
-- 会话 cookie 设置 HttpOnly
+### 安装步骤
+1. 克隆项目到本地
+2. 安装依赖: `pip install -r requirements.txt`
+3. 启动应用: `python app.py`
+4. 访问: http://localhost:32220
 
-### 测试
-- 测试文件: `test.py`
-- 测试题目: `test_questions.csv`
-- 测试说明: `TEST_INSTRUCTIONS.md`
+### 默认配置
+- **端口**: 32220
+- **调试模式**: 开启
+- **数据库**: SQLite (database.db)
+- **初始题库**: questions.csv
 
-## 工具和脚本
+## 核心特性详解
 
-### 数据转换工具 (`tools/`)
-- `convert_txt_csv.py`: TXT 转 CSV 格式
-- `convert_gongtongt_txt_to_csv.py`: 共同体题目格式转换
-- `test_question.csv`: 多空填空题示例题库，可用于导入与 UI 回归
+### 1. 多题库架构
+- 系统内置默认题库（题库 ID: 0）
+- 用户可创建自定义题库
+- 题库间完全隔离，数据安全
+- 支持题库切换和预览
 
-### AI 提示词 (`prompt/`)
-- `analysis.md`: 答案解析提示词
-- `hint.md`: 答题提示提示词
+### 2. 智能答题系统
+- **去重算法**: 自动避免重复答题
+- **题型适配**: 智能识别题型并提供相应界面
+- **答案验证**: 支持精确匹配和容错匹配
+- **实时反馈**: 即时显示答题结果
 
-## API 接口
+### 3. AI 集成架构
+- **统一接口**: 适配任何 OpenAI 兼容的 API
+- **密钥安全**: AES 加密存储用户 API 密钥
+- **流式输出**: 实时显示 AI 生成内容
+- **容错机制**: 自动重试和错误处理
+- **调试支持**: 完整的请求响应日志
 
-### 主要路由
-- `/`: 主页
-- `/login`, `/register`: 用户认证
-- `/quiz`: 答题功能
-- `/question_banks`: 题库管理
-- `/ai`: AI 相关功能
-- `/statistics`: 统计分析
+### 4. 数据安全
+- **密码哈希**: 使用 Flask 安全密码哈希
+- **会话管理**: 安全的 Session 配置
+- **SQL 注入防护**: 参数化查询
+- **数据加密**: 敏感信息加密存储
 
-### 数据接口
-- RESTful API 设计
-- JSON 数据格式
-- 支持流式响应（AI 服务）
+## 使用指南
 
-## 部署注意事项
+### 管理员功能
+1. **题库管理**: 创建、删除、导入题库
+2. **用户管理**: 查看用户统计和管理
+3. **系统设置**: 配置系统参数
 
-1. **生产环境配置**
-   - 设置强密钥 `SECRET_KEY`
-   - 关闭调试模式 `debug=False`
-   - 配置 HTTPS
+### 普通用户功能
+1. **答题练习**: 随机/顺序答题模式
+2. **考试模式**: 定时考试和批量答题
+3. **AI 助手**: 题目解析和思路提示
+4. **个人中心**: 查看统计和历史记录
 
-2. **数据库备份**
-   - 定期备份 `database.db`
-   - 保留原始 CSV 题库文件
+### AI 功能配置
+1. 访问"我的 > AI功能管理"
+2. 添加 AI 服务提供商配置
+3. 输入 API 密钥（支持加密存储）
+4. 激活配置并验证连接
+5. 在答题中使用 AI 助手
 
-3. **AI 服务配置**
-   - 配置有效的 AI 服务提供商
-   - 确保网络连接稳定
-   - 监控 API 使用量
-
-## 故障排查
-
-### 调试日志
-- AI 交互日志: `debug/ai_stream.log`
-- 数据库错误信息
-- Flask 应用日志
-
-### 常见问题
-1. 数据库初始化失败 → 检查 CSV 文件格式
-2. AI 服务无响应 → 验证 API 配置和网络
-3. 题目显示异常 → 检查数据库编码
-
-## 扩展开发
+## 开发和扩展
 
 ### 添加新题型
-1. 修改 `database.py` 中的 `validate_answer_by_type` 函数
-2. 更新前端答题界面
-3. 调整 AI 提示词
+1. 在 `database.py` 中更新题型识别逻辑
+2. 在模板中添加相应界面
+3. 更新答题验证逻辑
 
-### 集成新的 AI 服务
-1. 在 `ai_service.py` 中添加适配器
-2. 更新数据库 `ai_providers` 表结构
-3. 配置相应的 API 参数
+### 集成新 AI 服务
+1. 在 `ai_service.py` 中添加新的适配器
+2. 更新配置界面
+3. 测试连接和响应
+
+### 自定义主题
+1. 修改 `static/style.css`
+2. 更新 Bootstrap 变量
+3. 调整模板文件
+
+## 故障排除
+
+### 常见问题
+1. **数据库错误**: 删除 database.db 重新初始化
+2. **AI 连接失败**: 检查 API 密钥和网络连接
+3. **题库导入失败**: 检查 CSV 文件格式
+4. **权限错误**: 确认用户登录状态
+
+### 调试模式
+- 开启 Flask 调试模式查看详细错误信息
+- 检查 `debug/ai_stream.log` 中的 AI 交互日志
+- 查看浏览器控制台的前端错误
 
 ## 许可证
 
-MIT License - 详见项目根目录
+MIT License - 详见项目根目录 LICENSE 文件
 
-## 作者
+## 贡献
 
-jingkarqi (soraet2005@outlook.com)S
+欢迎提交 Issue 和 Pull Request 来改进项目。
+
+## 更新日志
+
+### v2.0.0
+- 新增 AI 助手功能
+- 支持多题库管理
+- 优化用户界面
+- 添加流式 AI 响应
+- 增强安全机制
+
+### v1.0.0
+- 基础考试系统
+- 用户认证
+- 题库管理
+- 答题功能

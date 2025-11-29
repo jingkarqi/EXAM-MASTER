@@ -1,5 +1,6 @@
 import json
 import random
+import secrets
 from datetime import datetime, timedelta
 from flask import Blueprint, request, render_template, session, redirect, url_for, flash, jsonify
 from database import (
@@ -378,6 +379,104 @@ def filter_questions():
                           selected_category=selected_category,
                           selected_difficulty=selected_difficulty,
                           results=results)
+
+# --- Study / Memorize Mode ---
+
+@bp.route('/study')
+@login_required
+def study_mode():
+    """Display a cram-friendly page that shows answers directly."""
+    user_id = get_user_id()
+    question_bank_id = get_active_question_bank_id(user_id)
+    order_mode = request.args.get('order', 'sequential')
+    page = max(request.args.get('page', 1, type=int), 1)
+    per_page = request.args.get('per_page', 10, type=int)
+    allowed_sizes = [10, 20, 30, 50]
+    if per_page not in allowed_sizes:
+        per_page = 10
+
+    conn = get_db()
+    c = conn.cursor()
+    c.execute('SELECT COUNT(*) AS total FROM questions WHERE question_bank_id=?', (question_bank_id,))
+    total = c.fetchone()['total'] or 0
+
+    total_pages = max((total + per_page - 1) // per_page, 1) if total else 0
+    if total_pages and page > total_pages:
+        page = total_pages
+
+    shuffle_seed = request.args.get('shuffle_seed', '')
+    questions = []
+
+    if total:
+        if order_mode == 'random':
+            if not shuffle_seed:
+                shuffle_seed = secrets.token_hex(4)
+            c.execute('''
+                SELECT id, stem, answer, difficulty, qtype, category, options, question_type
+                FROM questions
+                WHERE question_bank_id=?
+            ''', (question_bank_id,))
+            rows = list(c.fetchall())
+            rng = random.Random(shuffle_seed)
+            rng.shuffle(rows)
+            start = (page - 1) * per_page
+            end = start + per_page
+            rows = rows[start:end]
+        else:
+            order_mode = 'sequential'
+            offset = (page - 1) * per_page
+            c.execute('''
+                SELECT id, stem, answer, difficulty, qtype, category, options, question_type
+                FROM questions
+                WHERE question_bank_id=?
+                ORDER BY CAST(id AS INTEGER) ASC
+                LIMIT ? OFFSET ?
+            ''', (question_bank_id, per_page, offset))
+            rows = c.fetchall()
+
+        for row in rows:
+            question_type = row['question_type'] or row['qtype']
+            options = json.loads(row['options']) if row['options'] else {}
+            questions.append({
+                'id': row['id'],
+                'stem': row['stem'],
+                'answer': row['answer'],
+                'difficulty': row['difficulty'],
+                'type': row['qtype'],
+                'question_type': question_type,
+                'category': row['category'],
+                'options': options,
+                'fill_answers': parse_fill_answers(row['answer']) if question_type == '填空题' else []
+            })
+    conn.close()
+
+    display_start = ((page - 1) * per_page + 1) if total else 0
+    display_end = min(page * per_page, total) if total else 0
+
+    pagination_params = {
+        'order': order_mode if order_mode in {'sequential', 'random'} else 'sequential',
+        'per_page': per_page,
+    }
+    if pagination_params['order'] == 'random' and shuffle_seed:
+        pagination_params['shuffle_seed'] = shuffle_seed
+
+    mode_label = '乱序背题' if pagination_params['order'] == 'random' else '顺序背题'
+
+    template_data = {
+        'questions': questions,
+        'order_mode': pagination_params['order'],
+        'per_page': per_page,
+        'per_page_options': allowed_sizes,
+        'page': page if total else 1,
+        'total': total,
+        'total_pages': total_pages,
+        'display_start': display_start,
+        'display_end': display_end,
+        'shuffle_seed': shuffle_seed if order_mode == 'random' else '',
+        'pagination_params': pagination_params,
+        'mode_label': mode_label,
+    }
+    return render_template('study_mode.html', **template_data)
 
 # --- Sequential Mode ---
 

@@ -392,6 +392,18 @@ input[type="radio"] {
   transform: translateY(-2px);
 }
 
+.btn-info {
+  color: #fff;
+  background-color: var(--info-color);
+  border-color: var(--info-color);
+}
+
+.btn-info:hover {
+  background-color: #3ab8dd;
+  border-color: #3ab8dd;
+  transform: translateY(-2px);
+}
+
 .btn-outline-primary {
   color: var(--primary-color);
   background-color: transparent;
@@ -2351,8 +2363,9 @@ input[type="radio"] {
 
 .ai-fab-container {
   position: fixed;
-  bottom: 2rem;
+  top: 50%;
   right: 2rem;
+  transform: translateY(-50%);
   z-index: 1200;
 }
 
@@ -2495,8 +2508,10 @@ input[type="radio"] {
 
 @media (max-width: 768px) {
   .ai-fab-container {
-    right: 1rem;
-    bottom: 1rem;
+      top: auto;
+      bottom: 1rem;
+      right: 1rem;
+      transform: none;
   }
   .ai-modal__content {
     width: 100%;
