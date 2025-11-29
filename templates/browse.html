@@ -32,37 +32,33 @@
 
             <!-- Search and Filter Section -->
             <div class="desktop-search-filter-section mb-3">
-                <div class="row g-3 align-items-center">
+                <div class="desktop-search-row">
                     <!-- Search Bar -->
-                    <div class="col-md-6">
-                        <div class="desktop-search-container">
-                            <div class="position-relative">
-                                <input type="text" id="desktopSearchInput" class="form-control desktop-search-input" 
-                                       placeholder="搜索题目内容或题号..." value="{{ current_search or '' }}">
-                                <div class="desktop-search-icon">
-                                    <i class="fas fa-search"></i>
-                                </div>
-                                <button class="desktop-search-clear" id="desktopSearchClear" style="display: {% if current_search %}block{% else %}none{% endif %};">
-                                    <i class="fas fa-times"></i>
-                                </button>
+                    <div class="desktop-search-container">
+                        <div class="position-relative">
+                            <input type="text" id="desktopSearchInput" class="form-control desktop-search-input" 
+                                   placeholder="搜索题目内容或题号..." value="{{ current_search or '' }}">
+                            <div class="desktop-search-icon">
+                                <i class="fas fa-search"></i>
                             </div>
+                            <button class="desktop-search-clear" id="desktopSearchClear" style="display: {% if current_search %}block{% else %}none{% endif %};">
+                                <i class="fas fa-times"></i>
+                            </button>
                         </div>
                     </div>
                     
                     <!-- Filter Dropdown -->
-                    <div class="col-md-6">
-                        <div class="desktop-filter-container">
-                            <select class="form-select desktop-filter-select" id="desktopTypeFilter">
-                                <option value="all" {% if not current_type or current_type == 'all' %}selected{% endif %}>
-                                    <i class="fas fa-filter"></i> 全部题型
-                                </option>
-                                {% for type in available_types %}
-                                <option value="{{ type }}" {% if current_type == type %}selected{% endif %}>
-                                    {{ type }}
-                                </option>
-                                {% endfor %}
-                            </select>
-                        </div>
+                    <div class="desktop-filter-container">
+                        <select class="form-select desktop-filter-select" id="desktopTypeFilter">
+                            <option value="all" {% if not current_type or current_type == 'all' %}selected{% endif %}>
+                                <i class="fas fa-filter"></i> 全部题型
+                            </option>
+                            {% for type in available_types %}
+                            <option value="{{ type }}" {% if current_type == type %}selected{% endif %}>
+                                {{ type }}
+                            </option>
+                            {% endfor %}
+                        </select>
                     </div>
                 </div>
             </div>
@@ -170,6 +166,7 @@
     {% for question in questions %}
     <div class="card question-item mb-3" data-question-id="{{ question.id }}">
         <div class="card-body">
+            {% set disable_expand = question.type in ['判断题', '填空题'] %}
             <!-- Question Header -->
             <div class="question-header d-flex justify-content-between align-items-start mb-3">
                 <div class="question-meta d-flex align-items-center flex-wrap">
@@ -211,9 +208,11 @@
                         <i class="fas fa-play"></i>
                     </a>
                     
+                    {% if not disable_expand %}
                     <button class="btn btn-sm btn-outline-secondary toggle-expand" title="展开/收起">
                         <i class="fas fa-chevron-down"></i>
                     </button>
+                    {% endif %}
                 </div>
             </div>
             
@@ -222,15 +221,10 @@
                 <p class="question-stem-text mb-2">{{ question.stem[:150] }}{% if question.stem|length > 150 %}...{% endif %}</p>
             </div>
             
+            {% if not disable_expand %}
             <!-- Expanded Content (Initially Hidden) -->
             <div class="question-expanded-content" style="display: none;">
                 <hr class="my-3">
-                
-                <!-- Full Question Stem -->
-                <div class="question-full-content mb-3">
-                    <h6 class="text-primary">题目内容：</h6>
-                    <p class="question-full-text">{{ question.stem }}</p>
-                </div>
                 
                 <!-- Options -->
                 {% if question.options %}
@@ -247,14 +241,9 @@
                 </div>
                 {% endif %}
                 
-                <!-- Answer -->
-                <div class="question-answer">
-                    <div class="alert alert-success d-flex align-items-center">
-                        <i class="fas fa-check-circle me-2"></i>
-                        <strong>正确答案：{{ question.answer }}</strong>
-                    </div>
-                </div>
+                <!-- Answer intentionally hidden on browse page -->
             </div>
+            {% endif %}
         </div>
     </div>
     {% endfor %}
@@ -264,12 +253,13 @@
 <div class="mobile-questions-container d-md-none">
     <div class="mobile-questions-list" id="mobileQuestionsList">
         {% for question in questions %}
+        {% set disable_mobile_expand = question.type in ['判断题', '填空题'] %}
         <div class="mobile-question-card" 
              data-question-id="{{ question.id }}"
              data-question-type="{{ question.type or '' }}"
              data-question-difficulty="{{ question.difficulty or '' }}"
              data-question-stem="{{ question.stem|lower }}"
-             onclick="toggleMobileExpand(this)">
+             {% if not disable_mobile_expand %}onclick="toggleMobileExpand(this)"{% endif %}>
             
             <!-- Card Header -->
             <div class="mobile-card-header">
@@ -294,18 +284,17 @@
                             onclick="event.stopPropagation(); location.href='{{ url_for('quiz.show_question', qid=question.id) }}'">
                         <i class="fas fa-play"></i>
                     </button>
+                    {% if not disable_mobile_expand %}
                     <button class="mobile-action-btn mobile-expand-btn">
                         <i class="fas fa-chevron-down"></i>
                     </button>
+                    {% endif %}
                 </div>
             </div>
             
             <!-- Question Stem -->
             <div class="mobile-question-stem">
                 <p class="mobile-stem-preview">{{ question.stem[:120] }}{% if question.stem|length > 120 %}...{% endif %}</p>
-                <div class="mobile-stem-full" style="display: none;">
-                    <p>{{ question.stem }}</p>
-                </div>
             </div>
             
             <!-- Difficulty Indicator -->
@@ -326,8 +315,28 @@
             </div>
             {% endif %}
             
+            {% if not disable_mobile_expand %}
             <!-- Expanded Content -->
             <div class="mobile-expanded-content" style="display: none;">
+                <div class="mobile-divider"></div>
+                
+                <!-- Metadata -->
+                <div class="mobile-metadata">
+                    {% if question.category and question.category != '未分类' %}
+                    <div class="mobile-meta-item">
+                        <span class="mobile-meta-label">分类</span>
+                        <span class="mobile-meta-value">{{ question.category }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if question.difficulty and question.difficulty != '无' %}
+                    <div class="mobile-meta-item">
+                        <span class="mobile-meta-label">难度</span>
+                        <span class="mobile-meta-value">{{ question.difficulty }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
                 <div class="mobile-divider"></div>
                 
                 <!-- Options -->
@@ -343,18 +352,7 @@
                 </div>
                 {% endif %}
                 
-                <!-- Answer -->
-                <div class="mobile-answer">
-                    <div class="mobile-answer-container">
-                        <div class="mobile-answer-icon">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div class="mobile-answer-content">
-                            <div class="mobile-answer-label">正确答案</div>
-                            <div class="mobile-answer-value">{{ question.answer }}</div>
-                        </div>
-                    </div>
-                </div>
+                <!-- Answer intentionally hidden on browse page -->
                 
                 <!-- Actions -->
                 <div class="mobile-card-actions">
@@ -378,6 +376,7 @@
                     </a>
                 </div>
             </div>
+            {% endif %}
         </div>
         {% endfor %}
     </div>
@@ -683,8 +682,18 @@
     background: rgba(67, 97, 238, 0.02);
 }
 
+.desktop-search-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: clamp(0.5rem, 2.5vw, 1.25rem);
+    row-gap: 0.75rem;
+    align-items: center;
+}
+
 .desktop-search-container {
     position: relative;
+    width: 100%;
+    min-width: 260px;
 }
 
 .desktop-search-input {
@@ -730,6 +739,13 @@
 .desktop-search-clear:hover {
     background: rgba(108, 117, 125, 0.1);
     color: #495057;
+}
+
+.desktop-filter-container {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-self: flex-start;
 }
 
 .desktop-filter-select {
@@ -1264,13 +1280,6 @@ body.modal-open {
     margin: 0;
 }
 
-.mobile-stem-full p {
-    font-size: 1rem;
-    line-height: 1.7;
-    color: #333;
-    margin: 0;
-}
-
 .mobile-difficulty {
     display: flex;
     align-items: center;
@@ -1755,6 +1764,20 @@ body.modal-open {
 
 /* Responsive */
 @media (max-width: 768px) {
+    .desktop-search-row {
+        grid-template-columns: 1fr;
+        column-gap: 0;
+    }
+    
+    .desktop-search-container,
+    .desktop-filter-container {
+        width: 100%;
+    }
+    
+    .desktop-filter-container {
+        min-width: 100%;
+        justify-self: stretch;
+    }
     .browse-header .d-flex {
         flex-direction: column;
         align-items: flex-start !important;
@@ -1888,26 +1911,18 @@ body.modal-open {
 function toggleMobileExpand(card) {
     const expandedContent = card.querySelector('.mobile-expanded-content');
     const expandBtn = card.querySelector('.mobile-expand-btn');
+    if (!expandedContent || !expandBtn) return;
     const icon = expandBtn.querySelector('i');
-    const stemPreview = card.querySelector('.mobile-stem-preview');
-    const stemFull = card.querySelector('.mobile-stem-full');
+    if (!icon) return;
     
     if (expandedContent.style.display === 'none' || !expandedContent.style.display) {
         // Expand
         expandedContent.style.display = 'block';
-        if (stemFull) {
-            stemPreview.style.display = 'none';
-            stemFull.style.display = 'block';
-        }
         icon.className = 'fas fa-chevron-up';
         expandBtn.classList.add('expanded');
     } else {
         // Collapse
         expandedContent.style.display = 'none';
-        if (stemFull) {
-            stemPreview.style.display = 'block';
-            stemFull.style.display = 'none';
-        }
         icon.className = 'fas fa-chevron-down';
         expandBtn.classList.remove('expanded');
     }
