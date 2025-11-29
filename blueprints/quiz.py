@@ -312,27 +312,47 @@ def browse_questions():
         question_data['is_favorite'] = bool(c.fetchone())
         questions.append(question_data)
     
-    c.execute('SELECT DISTINCT qtype FROM questions WHERE qtype IS NOT NULL AND qtype != ""')
+    c.execute('''
+        SELECT DISTINCT qtype FROM questions
+        WHERE question_bank_id=? AND qtype IS NOT NULL AND qtype != ""
+        ORDER BY qtype
+    ''', (question_bank_id,))
     available_types = [r['qtype'] for r in c.fetchall()]
+
+    c.execute('''
+        SELECT DISTINCT difficulty FROM questions
+        WHERE question_bank_id=? AND difficulty IS NOT NULL AND difficulty != ""
+        ORDER BY difficulty
+    ''', (question_bank_id,))
+    available_difficulties = [r['difficulty'] for r in c.fetchall()]
+
+    c.execute('''
+        SELECT DISTINCT category FROM questions
+        WHERE question_bank_id=? AND category IS NOT NULL AND category != ""
+        ORDER BY category
+    ''', (question_bank_id,))
+    available_categories = [r['category'] for r in c.fetchall()]
     conn.close()
-    
+
     total_pages = (total + per_page - 1) // per_page
     has_prev = page > 1
     has_next = page < total_pages
     
     return render_template('browse.html',
-                          questions=questions,
-                          total=total,
-                          page=page,
-                          per_page=per_page,
-                          total_pages=total_pages,
-                          has_prev=has_prev,
-                          has_next=has_next,
-                          current_type=question_type,
-                          current_search=search_query,
-                          current_difficulties=difficulty_filters,
-                          current_categories=category_filters,
-                          available_types=available_types)
+                           questions=questions,
+                           total=total,
+                           page=page,
+                           per_page=per_page,
+                           total_pages=total_pages,
+                           has_prev=has_prev,
+                           has_next=has_next,
+                           current_type=question_type,
+                           current_search=search_query,
+                           current_difficulties=difficulty_filters,
+                           current_categories=category_filters,
+                           available_types=available_types,
+                           available_difficulties=available_difficulties,
+                           available_categories=available_categories)
 
 @bp.route('/filter', methods=['GET', 'POST'])
 @login_required

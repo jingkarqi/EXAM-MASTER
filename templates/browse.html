@@ -18,7 +18,7 @@
                     </h2>
                 </div>
                 <div class="browse-stats">
-                    <button class="btn btn-primary me-3" data-bs-toggle="modal" data-bs-target="#advancedFilterModal">
+                    <button id="advancedFilterButton" type="button" class="btn btn-primary me-3" aria-controls="advancedFilterModal" data-advanced-filter-trigger>
                         <i class="fas fa-sliders-h"></i> 高级筛选
                     </button>
                     <span class="badge badge-info">
@@ -104,22 +104,34 @@
 <!-- Mobile Header with Modern Design -->
 <div class="mobile-browse-header d-md-none">
     <div class="mobile-header-gradient">
-        <div class="container-fluid p-3">
-            <!-- Navigation Row -->
-            <div class="row align-items-center mb-3">
-                <div class="col-auto">
+        <div class="mobile-header-content">
+            <!-- Navigation + Title -->
+            <div class="mobile-header-toolbar">
+                <div class="mobile-toolbar-left">
                     <a href="{{ url_for('main.index') }}" class="btn btn-mobile-back">
                         <i class="fas fa-arrow-left"></i>
                     </a>
+                    <div class="mobile-title-group">
+                        <h1 class="mobile-title mb-0">浏览题目</h1>
+                        <div class="mobile-subtitle">智能筛选 · 搜索题库更高效</div>
+                    </div>
                 </div>
-                <div class="col">
-                    <h1 class="mobile-title mb-0">浏览题目</h1>
-                    <div class="mobile-subtitle">共<span id="filtered-count">{{ total }}</span>/{{ total }}题</div>
-                </div>
-                <div class="col-auto">
-                    <button class="btn btn-mobile-stats" data-bs-toggle="modal" data-bs-target="#statsModal">
-                        <i class="fas fa-chart-bar"></i>
+                <div class="mobile-toolbar-actions">
+                    <button class="btn btn-mobile-stats" type="button" aria-controls="advancedFilterModal" data-advanced-filter-trigger>
+                        <i class="fas fa-sliders-h"></i>
                     </button>
+                </div>
+            </div>
+
+            <!-- Stats Pills -->
+            <div class="mobile-stat-chips">
+                <div class="mobile-stat-chip">
+                    <i class="fas fa-list"></i>
+                    <span>共<span id="filtered-count">{{ total }}</span>/{{ total }}题</span>
+                </div>
+                <div class="mobile-stat-chip">
+                    <i class="fas fa-layer-group"></i>
+                    <span>第 {{ page }} / {{ total_pages }} 页</span>
                 </div>
             </div>
             
@@ -139,7 +151,7 @@
             
             <!-- Filter Chips -->
             <div class="mobile-filter-chips" id="mobileFilterChips">
-                <div class="filter-chip {% if not current_type or current_type == 'all' %}active{% endif %}" data-filter="all">
+                <div class="filter-chip filter-chip-all {% if not current_type or current_type == 'all' %}active{% endif %}" data-filter="all">
                     <span>全部</span>
                 </div>
                 {% for type in available_types %}
@@ -483,10 +495,11 @@
         <div class="pagination-mobile d-md-none">
             <!-- Previous/Next Navigation -->
             <div class="mobile-nav-controls mb-3">
-                <div class="row g-2">
-                    <div class="col-4">
+                <div class="mobile-pagination-row">
+                    <div class="mobile-pagination-col">
                         {% if has_prev %}
-                        <a href="{{ url_for('quiz.browse_questions', page=page-1, type=current_type, search=current_search) }}" class="btn btn-outline-primary btn-sm w-100">
+                        <a href="{{ url_for('quiz.browse_questions', page=page-1, type=current_type, search=current_search) }}"
+                           class="btn btn-outline-primary btn-sm w-100">
                             <i class="fas fa-chevron-left"></i><br><small>上一页</small>
                         </a>
                         {% else %}
@@ -496,16 +509,17 @@
                         {% endif %}
                     </div>
                     
-                    <div class="col-4 text-center">
+                    <div class="mobile-pagination-col pagination-status text-center">
                         <div class="page-indicator">
                             <div class="current-page">{{ page }}</div>
                             <div class="total-pages">共 {{ total_pages }} 页</div>
                         </div>
                     </div>
                     
-                    <div class="col-4">
+                    <div class="mobile-pagination-col">
                         {% if has_next %}
-                        <a href="{{ url_for('quiz.browse_questions', page=page+1, type=current_type, search=current_search) }}" class="btn btn-outline-primary btn-sm w-100">
+                        <a href="{{ url_for('quiz.browse_questions', page=page+1, type=current_type, search=current_search) }}"
+                           class="btn btn-outline-primary btn-sm w-100">
                             <i class="fas fa-chevron-right"></i><br><small>下一页</small>
                         </a>
                         {% else %}
@@ -554,7 +568,7 @@
                 <h5 class="modal-title" id="advancedFilterModalLabel">
                     <i class="fas fa-sliders-h text-primary"></i> 高级筛选设置
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close" aria-label="关闭" data-modal-close="advancedFilterModal"></button>
             </div>
             <div class="modal-body">
                 <form id="advancedFilterForm">
@@ -583,25 +597,22 @@
                             <label class="form-label fw-bold">
                                 <i class="fas fa-chart-line text-warning"></i> 难度等级
                             </label>
+                            {% set difficulty_options = available_difficulties or ['简单', '中等', '困难'] %}
+                            {% set difficulty_styles = {
+                                '简单': {'icon': 'fas fa-chevron-down', 'class': 'text-success'},
+                                '中等': {'icon': 'fas fa-minus', 'class': 'text-warning'},
+                                '困难': {'icon': 'fas fa-chevron-up', 'class': 'text-danger'}
+                            } %}
                             <div class="advanced-filter-group">
+                                {% for difficulty in difficulty_options %}
+                                {% set style = difficulty_styles.get(difficulty, {'icon': 'fas fa-equals', 'class': 'text-muted'}) %}
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="difficulty" value="简单" id="difficultyEasy">
-                                    <label class="form-check-label text-success" for="difficultyEasy">
-                                        <i class="fas fa-chevron-down me-1"></i>简单
+                                    <input class="form-check-input" type="checkbox" name="difficulty" value="{{ difficulty }}" id="difficulty{{ loop.index }}">
+                                    <label class="form-check-label {{ style.class }}" for="difficulty{{ loop.index }}">
+                                        <i class="{{ style.icon }} me-1"></i>{{ difficulty }}
                                     </label>
                                 </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="difficulty" value="中等" id="difficultyMedium">
-                                    <label class="form-check-label text-warning" for="difficultyMedium">
-                                        <i class="fas fa-minus me-1"></i>中等
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="difficulty" value="困难" id="difficultyHard">
-                                    <label class="form-check-label text-danger" for="difficultyHard">
-                                        <i class="fas fa-chevron-up me-1"></i>困难
-                                    </label>
-                                </div>
+                                {% endfor %}
                             </div>
                         </div>
                         
@@ -610,15 +621,28 @@
                             <label class="form-label fw-bold">
                                 <i class="fas fa-folder text-info"></i> 题目分类
                             </label>
-                            <div class="advanced-filter-group">
-                                <div class="row">
+                            <div class="advanced-filter-group" id="advancedCategoryGroup">
+                                <div class="row g-2">
                                     <div class="col-md-6">
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" name="category" value="all" id="categoryAll" checked>
                                             <label class="form-check-label" for="categoryAll">全部分类</label>
                                         </div>
                                     </div>
-                                    <!-- Categories will be populated dynamically if needed -->
+                                    {% if available_categories %}
+                                        {% for category in available_categories %}
+                                        <div class="col-md-6">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="category" value="{{ category }}" id="categoryOption{{ loop.index }}">
+                                                <label class="form-check-label" for="categoryOption{{ loop.index }}">{{ category }}</label>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="col-12">
+                                            <small class="text-muted">当前题库暂无分类信息</small>
+                                        </div>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -736,6 +760,53 @@
 }
 
 /* Advanced Filter Modal Styles */
+.modal {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.55);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    z-index: 2000;
+}
+
+.modal.show {
+    display: flex;
+}
+
+.modal.fade .modal-dialog {
+    transform: translateY(-30px);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.modal.show .modal-dialog {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+.modal .modal-dialog {
+    width: 100%;
+    max-width: 720px;
+}
+
+.modal .modal-content {
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 1rem;
+    background-color: #ffffff;
+    color: #212529;
+    box-shadow: 0 25px 65px rgba(14, 30, 37, 0.5);
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
 .advanced-filter-group {
     background: #f8f9fa;
     border-radius: 8px;
@@ -879,6 +950,65 @@
     box-shadow: 0 4px 20px rgba(67, 97, 238, 0.3);
 }
 
+.mobile-header-content {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.mobile-header-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.mobile-toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.mobile-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+}
+
+.mobile-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.mobile-stat-chips {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.mobile-stat-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 0.9rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    font-size: 0.9rem;
+    color: white;
+    backdrop-filter: blur(4px);
+}
+
+.mobile-stat-chip i {
+    font-size: 1rem;
+}
+
 .btn-mobile-back {
     background: rgba(255, 255, 255, 0.2);
     border: none;
@@ -983,18 +1113,20 @@
 /* Mobile Filter Chips */
 .mobile-filter-chips {
     display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 5px;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
 }
 
-.mobile-filter-chips::-webkit-scrollbar {
-    display: none;
+.filter-chip-all {
+    flex: 1 1 100%;
+    justify-content: center;
 }
 
 .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid rgba(255, 255, 255, 0.3);
     border-radius: 20px;
@@ -1512,6 +1644,35 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
+.mobile-pagination-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    align-items: stretch;
+}
+
+.mobile-pagination-col {
+    display: flex;
+}
+
+.mobile-pagination-col .btn {
+    width: 100%;
+}
+
+.mobile-pagination-col.pagination-status {
+    justify-content: center;
+    align-items: center;
+}
+
+.mobile-pagination-col.pagination-status .page-indicator {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
 .mobile-nav-controls .btn {
     height: 60px;
     display: flex;
@@ -1677,6 +1838,38 @@
 }
 
 @media (max-width: 480px) {
+    .mobile-filter-chips {
+        gap: 0.4rem;
+    }
+
+    .filter-chip {
+        flex: 1 1 calc(50% - 0.4rem);
+        text-align: center;
+        justify-content: center;
+    }
+
+    .filter-chip-all {
+        flex: 1 1 100%;
+    }
+
+    .mobile-header-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .mobile-toolbar-left {
+        width: 100%;
+    }
+
+    .mobile-toolbar-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .mobile-stat-chips {
+        flex-direction: column;
+    }
+
     .question-actions .btn {
         min-width: 32px;
         height: 32px;
@@ -1718,6 +1911,26 @@ function toggleMobileExpand(card) {
         icon.className = 'fas fa-chevron-down';
         expandBtn.classList.remove('expanded');
     }
+}
+
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return null;
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    return modal;
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return null;
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+    if (!document.querySelector('.modal.show')) {
+        document.body.classList.remove('modal-open');
+    }
+    return modal;
 }
 
 // Helper functions for template rendering (these would be Python functions)
@@ -1771,6 +1984,8 @@ function clearAllFilters() {
     const currentUrl = new URL(window.location);
     currentUrl.searchParams.delete('search');
     currentUrl.searchParams.delete('type');
+    currentUrl.searchParams.delete('difficulty');
+    currentUrl.searchParams.delete('category');
     currentUrl.searchParams.delete('page');
     window.location.href = currentUrl.toString();
 }
@@ -1781,16 +1996,18 @@ function resetAdvancedFilter() {
     if (form) {
         form.reset();
         // Set default values
-        document.getElementById('advancedTypeAll').checked = true;
+        const typeAllRadio = document.getElementById('advancedTypeAll');
+        if (typeAllRadio) typeAllRadio.checked = true;
         // Reset difficulty checkboxes
         document.querySelectorAll('input[name="difficulty"]').forEach(checkbox => {
             checkbox.checked = false;
         });
         // Reset category checkboxes
         document.querySelectorAll('input[name="category"]').forEach(checkbox => {
-            checkbox.checked = false;
+            checkbox.checked = checkbox.value === 'all';
         });
-        document.getElementById('advancedSearchInput').value = '';
+        const searchInput = document.getElementById('advancedSearchInput');
+        if (searchInput) searchInput.value = '';
     }
 }
 
@@ -1836,9 +2053,7 @@ function applyAdvancedFilter() {
     }
 
     // Close modal and navigate
-    const modal = bootstrap.Modal.getInstance(document.getElementById('advancedFilterModal'));
-    if (modal) modal.hide();
-
+    closeModal('advancedFilterModal');
     window.location.href = currentUrl.toString();
 }
 
@@ -1890,33 +2105,86 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Initialize advanced filter modal with current values
+    // Initialize advanced filter modal without Bootstrap dependency
     const advancedModal = document.getElementById('advancedFilterModal');
-    if (advancedModal) {
-        advancedModal.addEventListener('show.bs.modal', function() {
+    const advancedFilterTriggers = document.querySelectorAll('[data-advanced-filter-trigger]');
+    if (advancedModal && advancedFilterTriggers.length) {
+        const syncAdvancedModalState = () => {
             const urlParams = new URLSearchParams(window.location.search);
 
-            // Set current type selection
             const currentType = urlParams.get('type') || 'all';
             const typeRadio = document.querySelector(`input[name="advancedType"][value="${currentType}"]`);
             if (typeRadio) typeRadio.checked = true;
 
-            // Set current difficulty selection (multi-select)
             const currentDifficulties = urlParams.getAll('difficulty');
             document.querySelectorAll('input[name="difficulty"]').forEach(checkbox => {
                 checkbox.checked = currentDifficulties.includes(checkbox.value);
             });
 
-            // Set current category selection (multi-select)
             const currentCategories = urlParams.getAll('category');
+            const hasCategoryFilters = currentCategories.length > 0 && !currentCategories.includes('all');
             document.querySelectorAll('input[name="category"]').forEach(checkbox => {
-                checkbox.checked = currentCategories.includes(checkbox.value);
+                if (checkbox.value === 'all') {
+                    checkbox.checked = !hasCategoryFilters;
+                } else {
+                    checkbox.checked = currentCategories.includes(checkbox.value);
+                }
             });
 
-            // Set current search term
             const currentSearch = urlParams.get('search') || '';
             const searchInput = document.getElementById('advancedSearchInput');
             if (searchInput) searchInput.value = currentSearch;
+        };
+
+        const closeAdvancedModal = () => closeModal('advancedFilterModal');
+        const openAdvancedModal = () => {
+            syncAdvancedModalState();
+            openModal('advancedFilterModal');
+        };
+
+        advancedFilterTriggers.forEach(trigger => {
+            trigger.addEventListener('click', openAdvancedModal);
+        });
+
+        advancedModal.addEventListener('click', event => {
+            if (event.target === advancedModal) {
+                closeAdvancedModal();
+            }
+        });
+
+        advancedModal.querySelectorAll('[data-modal-close="advancedFilterModal"]').forEach(button => {
+            button.addEventListener('click', closeAdvancedModal);
+        });
+
+        const categoryInputs = advancedModal.querySelectorAll('input[name="category"]');
+        const categoryAllInput = advancedModal.querySelector('input[name="category"][value="all"]');
+        categoryInputs.forEach(input => {
+            input.addEventListener('change', () => {
+                if (input.value === 'all' && input.checked) {
+                    categoryInputs.forEach(other => {
+                        if (other !== input) {
+                            other.checked = false;
+                        }
+                    });
+                    input.checked = true;
+                    return;
+                }
+
+                if (input.checked) {
+                    if (categoryAllInput) categoryAllInput.checked = false;
+                } else {
+                    const hasOtherChecked = Array.from(categoryInputs).some(other => other.value !== 'all' && other.checked);
+                    if (!hasOtherChecked && categoryAllInput) {
+                        categoryAllInput.checked = true;
+                    }
+                }
+            });
+        });
+
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape' && advancedModal.classList.contains('show')) {
+                closeAdvancedModal();
+            }
         });
     }
 
@@ -1998,33 +2266,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (searchInput && questionsList) {
         let allQuestions = Array.from(questionsList.querySelectorAll('.mobile-question-card'));
         let currentFilter = 'all';
-        
-        // Initialize filter chips
-        initializeFilterChips();
-        
-        function initializeFilterChips() {
-            const filterChips = document.getElementById('mobileFilterChips');
-            if (!filterChips) return;
-            
-            // Get unique question types
-            const types = new Set();
-            allQuestions.forEach(card => {
-                const type = card.getAttribute('data-question-type');
-                if (type && type.trim()) {
-                    types.add(type);
-                }
-            });
-            
-            // Create filter chips
-            types.forEach(type => {
-                const chip = document.createElement('div');
-                chip.className = 'filter-chip';
-                chip.dataset.filter = type;
-                chip.innerHTML = `<span>${type}</span>`;
-                chip.addEventListener('click', () => setFilter(type));
-                filterChips.appendChild(chip);
-            });
-        }
         
         function setFilter(filter) {
             // Redirect with filter parameter
