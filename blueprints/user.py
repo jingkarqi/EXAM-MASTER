@@ -245,6 +245,8 @@ def only_wrong_mode():
                           question=q, 
                           is_favorite=is_fav,
                           user_answer='',
+                          fill_user_answers=[],
+                          result_correct=None,
                           ai_context=ai_context)
 
 @bp.route('/favorite/<qid>', methods=['POST'])

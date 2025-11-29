@@ -34,3 +34,4 @@ dev-doc/
 .claude/
 .trae/
 CLAUDE.md
+.venv/

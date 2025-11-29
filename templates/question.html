@@ -63,8 +63,9 @@
     
     <!-- 答题结果消息 -->
     {% if result_msg %}
-        <div class="result-message {% if '正确' in result_msg %}result-correct{% else %}result-incorrect{% endif %}">
-            {% if '正确' in result_msg %}
+        {% set was_correct = result_correct if result_correct is defined and result_correct is not none else ('正确' in result_msg) %}
+        <div class="result-message {% if was_correct %}result-correct{% else %}result-incorrect{% endif %}">
+            {% if was_correct %}
                 <i class="fas fa-check-circle"></i>
             {% else %}
                 <i class="fas fa-times-circle"></i>
@@ -105,23 +106,47 @@
             </div>
         {% elif question.question_type == '填空题' %}
             <!-- 填空题输入框 -->
+            {% set fill_count = question.fill_blank_count if question.fill_blank_count else 1 %}
+            {% set fill_values = fill_user_answers|default([]) %}
             <div class="fill-blank-input">
-                {% set user_answer_value = user_answer if user_answer is defined else '' %}
-                <input type="text"
-                       name="answer"
-                       class="form-control"
-                       placeholder="请输入答案"
-                       value="{{ user_answer_value }}"
-                       {% if result_msg %}disabled{% endif %}
-                       required>
-                {% if result_msg and user_answer_value %}
-                    <div class="answer-feedback mt-2">
-                        {% if '正确' in result_msg %}
-                            <span class="text-success"><i class="fas fa-check-circle"></i> 您的答案：{{ user_answer_value }}</span>
+                {% if fill_count > 1 %}
+                    <div class="fill-blank-hint text-muted mb-2">
+                        本题共有 {{ fill_count }} 个空，请依次填写。
+                    </div>
+                {% endif %}
+                <div class="fill-blank-grid">
+                    {% for idx in range(fill_count) %}
+                        {% set prefill = fill_values[idx] if fill_values|length > idx else '' %}
+                        <div class="fill-blank-field">
+                            <label class="fill-blank-label">空 {{ idx + 1 }}</label>
+                            <input type="text"
+                                   name="answer"
+                                   class="form-control"
+                                   placeholder="请输入答案"
+                                   value="{{ prefill }}"
+                                   {% if result_msg %}disabled{% endif %}
+                                   required>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% if result_msg %}
+                    {% set blank_correct = result_correct if result_correct is defined and result_correct is not none else ('正确' in result_msg) %}
+                    <div class="answer-feedback mt-3">
+                        {% if blank_correct %}
+                            <span class="text-success">
+                                <i class="fas fa-check-circle"></i>
+                                您的答案：{{ fill_values|join('，') if fill_values else '（未填写）' }}
+                            </span>
                         {% else %}
-                            <span class="text-danger"><i class="fas fa-times-circle"></i> 您的答案：{{ user_answer_value }}</span>
+                            <span class="text-danger">
+                                <i class="fas fa-times-circle"></i>
+                                您的答案：{{ fill_values|join('，') if fill_values else '（未填写）' }}
+                            </span>
                             <br>
-                            <span class="text-success"><i class="fas fa-check-circle"></i> 正确答案：{{ question.answer }}</span>
+                            <span class="text-success">
+                                <i class="fas fa-check-circle"></i>
+                                正确答案：{{ question.answer }}
+                            </span>
                         {% endif %}
                     </div>
                 {% endif %}
@@ -214,16 +239,13 @@
         <p class="mb-4">您可以重置答题历史，或者尝试其他学习模式</p>
         <div class="d-flex gap-2 justify-content-center flex-wrap">
             <form method="post" action="{{ url_for('user.reset_history') }}">
-            <form method="post" action="{{ url_for('user.reset_history') }}">
                 <button type="submit" class="btn btn-warning" onclick="return confirm('确定要重置答题历史吗？此操作不可恢复。')">
                     <i class="fas fa-redo"></i> 重置答题历史
                 </button>
             </form>
             <a href="{{ url_for('user.wrong_questions') }}" class="btn btn-danger">
-            <a href="{{ url_for('user.wrong_questions') }}" class="btn btn-danger">
                 <i class="fas fa-times-circle"></i> 练习错题
             </a>
-            <a href="{{ url_for('main.index') }}" class="btn btn-primary">
             <a href="{{ url_for('main.index') }}" class="btn btn-primary">
                 <i class="fas fa-home"></i> 返回首页
             </a>
@@ -299,6 +321,27 @@
         flex-direction: column;
         align-items: center;
         padding: 2rem;
+    }
+
+    .fill-blank-grid {
+        display: grid;
+        gap: 1rem;
+    }
+
+    @media (min-width: 576px) {
+        .fill-blank-grid {
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+    }
+
+    .fill-blank-label {
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+        display: block;
+    }
+
+    .fill-blank-field input[disabled] {
+        background-color: #f8f9fa;
     }
     
     @media (max-width: 768px) {

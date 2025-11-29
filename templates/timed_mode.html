@@ -48,8 +48,21 @@
                 </div>
             {% elif question.question_type == '填空题' %}
                 <!-- 填空题输入框 -->
+                {% set fill_count = question.fill_blank_count if question.fill_blank_count else 1 %}
                 <div class="fill-blank-input">
-                    <input type="text" name="answer_{{ question.id }}" class="form-control" placeholder="请输入答案" required>
+                    {% if fill_count > 1 %}
+                        <div class="text-muted mb-2">本题共有 {{ fill_count }} 个空，请依次填写。</div>
+                    {% endif %}
+                    {% for idx in range(fill_count) %}
+                        <div class="mb-2">
+                            <label class="form-label">空 {{ idx + 1 }}</label>
+                            <input type="text"
+                                   name="answer_{{ question.id }}"
+                                   class="form-control"
+                                   placeholder="请输入答案"
+                                   required>
+                        </div>
+                    {% endfor %}
                 </div>
             {% else %}
                 <!-- 单选题和多选题选项 -->

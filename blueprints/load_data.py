@@ -41,28 +41,38 @@ def validate_question_data(question_data):
         if not question_data.get(field) or not str(question_data[field]).strip():
             errors.append(f"字段 '{field}' 不能为空")
 
-    # 检查答案格式
-    if question_data.get('answer'):
-        answer = str(question_data['answer']).strip().upper()
-        # 检查答案是否在 A-E 范围内
+    # 标准化题型
+    question_type = (question_data.get('qtype') or '单选题').strip() or '单选题'
+    question_data['qtype'] = question_type
+
+    if question_type not in ['单选题', '多选题', '判断题', '填空题']:
+        errors.append(f"题型 '{question_type}' 无效，必须是：单选题、多选题、判断题、填空题")
+        return errors
+
+    normalized_answer = str(question_data.get('answer', '')).strip()
+
+    if question_type in ['单选题', '多选题']:
+        answer = normalized_answer.upper()
+        question_data['answer'] = answer
         for char in answer:
             if char not in 'ABCDE':
                 errors.append(f"答案 '{answer}' 包含无效字符，只能包含 A-E")
                 break
 
-    # 检查选项数量
-    options_count = 0
-    for opt in ['A', 'B', 'C', 'D', 'E']:
-        if question_data.get(opt) and str(question_data[opt]).strip():
-            options_count += 1
+        options_count = 0
+        for opt in ['A', 'B', 'C', 'D', 'E']:
+            if question_data.get(opt) and str(question_data[opt]).strip():
+                options_count += 1
 
-    if options_count < 2:
-        errors.append("至少需要提供2个选项")
+        if options_count < 2:
+            errors.append("至少需要提供2个选项")
 
-    # 检查题型
-    question_type = question_data.get('qtype', '')
-    if question_type and question_type not in ['单选题', '多选题', '判断题', '填空题']:
-        errors.append(f"题型 '{question_type}' 无效，必须是：单选题、多选题、判断题、填空题")
+    elif question_type == '判断题':
+        if normalized_answer not in ['正确', '错误']:
+            errors.append("判断题答案必须为“正确”或“错误”")
+        question_data['answer'] = normalized_answer
+    else:  # 填空题
+        question_data['answer'] = normalized_answer
 
     return errors
 
@@ -76,12 +86,16 @@ def parse_csv_file(file_path):
             reader = csv.DictReader(f)
 
             for row_num, row in enumerate(reader, start=2):  # 从第2行开始（跳过表头）
+                question_type = (row.get('题型', '单选题') or '单选题').strip() or '单选题'
+                raw_answer = row.get('答案', '').strip()
+                answer_value = raw_answer.upper() if question_type in ['单选题', '多选题'] else raw_answer
+
                 question_data = {
                     'id': row.get('题号', '').strip(),
                     'stem': row.get('题干', '').strip(),
-                    'answer': row.get('答案', '').strip().upper(),
+                    'answer': answer_value,
                     'difficulty': row.get('难度', '无').strip(),
-                    'qtype': row.get('题型', '单选题').strip(),
+                    'qtype': question_type,
                     'category': row.get('类别', '未分类').strip(),
                     'A': row.get('A', '').strip(),
                     'B': row.get('B', '').strip(),

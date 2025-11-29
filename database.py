@@ -2,12 +2,24 @@ import sqlite3
 import csv
 import json
 import os
+import re
 
 # 数据库文件路径
 DB_NAME = 'database.db'
 CSV_FILE = 'questions.csv'
 SYSTEM_QUESTION_BANK_ID = 0
 SYSTEM_QUESTION_BANK_NAME = "系统默认题库"
+FILL_ANSWER_PATTERN = re.compile(r'[（(](.*?)[)）]')
+
+def parse_fill_answers(answer_text):
+    """Split multi-blank answers written as (ans1)(ans2)(ans3)."""
+    if not answer_text:
+        return []
+    parts = FILL_ANSWER_PATTERN.findall(answer_text)
+    if parts:
+        return [part.strip() for part in parts]
+    cleaned = answer_text.strip()
+    return [cleaned] if cleaned else []
 
 def _column_exists(cursor, table_name, column_name):
     """Check whether a column exists on a table."""
@@ -284,7 +296,7 @@ def fetch_question(qid, question_bank_id=SYSTEM_QUESTION_BANK_ID):
     conn.close()
 
     if row:
-        return {
+        question_data = {
             'id': row['id'],
             'stem': row['stem'],
             'answer': row['answer'],
@@ -295,6 +307,12 @@ def fetch_question(qid, question_bank_id=SYSTEM_QUESTION_BANK_ID):
             'question_type': row['question_type'] if row['question_type'] else row['qtype'],  # 兼容旧数据
             'question_bank_id': row['question_bank_id']
         }
+        if question_data['question_type'] == '填空题':
+            blanks = parse_fill_answers(row['answer'])
+            question_data['fill_blank_count'] = len(blanks) if blanks else 1
+        else:
+            question_data['fill_blank_count'] = 0
+        return question_data
     return None
 
 def random_question_id(user_id, question_bank_id=SYSTEM_QUESTION_BANK_ID):

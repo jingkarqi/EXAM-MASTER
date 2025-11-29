@@ -11,6 +11,7 @@ from database import (
     get_active_question_bank_id,
     get_active_ai_provider,
     SYSTEM_QUESTION_BANK_ID,
+    parse_fill_answers,
 )
 from .auth import login_required, get_user_id
 
@@ -37,11 +38,26 @@ def validate_answer_by_type(question_type, user_answer, correct_answer):
         # 判断题直接比较文本
         return int(user_answer == correct_answer)
     elif question_type == "填空题":
-        # 填空题精确匹配，忽略前后空格和大小写
-        return int(user_answer.strip().lower() == correct_answer.strip().lower())
+        user_parts = [part.strip().lower() for part in parse_fill_answers(user_answer)]
+        correct_parts = [part.strip().lower() for part in parse_fill_answers(correct_answer)]
+        if not correct_parts:
+            return 0
+        if len(user_parts) != len(correct_parts):
+            return 0
+        return int(all(u == c for u, c in zip(user_parts, correct_parts)))
     else:
         # 默认使用单选题验证逻辑
         return int(user_answer == correct_answer)
+
+
+def serialize_user_answer(question_type, answers):
+    """Format posted answers into the string stored in history."""
+    if not answers:
+        return ""
+    if question_type == "填空题":
+        normalized = [ans.strip() for ans in answers]
+        return "".join(f"({value})" for value in normalized)
+    return "".join(answers)
 
 
 def build_ai_context(question, user_answer, has_result, has_provider):
@@ -94,12 +110,17 @@ def random_question():
             answered=answered,
             total=total,
             user_answer='',
+            fill_user_answers=[],
+            result_correct=None,
             ai_context=build_ai_context(None, '', False, has_ai_provider)
         )
         
     q = fetch_question(qid, question_bank_id)
     is_fav = is_favorite(user_id, qid, question_bank_id)
     user_answer_value = ''
+    fill_user_answers = []
+    if q and q.get('question_type', q.get('type')) == '填空题':
+        fill_user_answers = parse_fill_answers(user_answer_value)
     
     return render_template(
         'question.html',
@@ -108,6 +129,8 @@ def random_question():
         total=total,
         is_favorite=is_fav,
         user_answer=user_answer_value,
+        fill_user_answers=fill_user_answers,
+        result_correct=None,
         ai_context=build_ai_context(q, user_answer_value, False, has_ai_provider)
     )
 
@@ -119,10 +142,14 @@ def show_question(qid):
     q = fetch_question(qid, question_bank_id)
     has_ai_provider = bool(get_active_ai_provider(user_id))
     user_answer_str = ""
+    result_correct = None
     
     if q is None:
         flash("题目不存在", "error")
         return redirect(url_for('main.index'))
+    
+    question_type = q.get('question_type', q['type'])
+    fill_user_answers = []
 
     conn = get_db()
     c = conn.cursor()
@@ -131,11 +158,13 @@ def show_question(qid):
 
     if request.method == 'POST':
         user_answer = request.form.getlist('answer')
-        user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
+        user_answer_str = serialize_user_answer(question_type, user_answer)
+        if question_type == '填空题':
+            fill_user_answers = parse_fill_answers(user_answer_str)
 
         # 使用新的验证函数
-        question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
         correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
+        result_correct = bool(correct)
 
         c.execute(
             'INSERT INTO history (user_id, question_id, question_bank_id, user_answer, correct) VALUES (?,?,?,?,?)',
@@ -162,6 +191,8 @@ def show_question(qid):
             total=total,
             is_favorite=is_fav,
             user_answer=user_answer_str,
+            fill_user_answers=fill_user_answers,
+            result_correct=result_correct,
             ai_context=build_ai_context(q, user_answer_str, True, has_ai_provider)
         )
 
@@ -180,6 +211,8 @@ def show_question(qid):
         total=total,
         is_favorite=is_fav,
         user_answer=user_answer_str,
+        fill_user_answers=fill_user_answers,
+        result_correct=result_correct,
         ai_context=build_ai_context(q, user_answer_str, False, has_ai_provider)
     )
 
@@ -407,10 +440,14 @@ def show_sequential_question(qid):
     if q is None:
         flash("题目不存在", "error")
         return redirect(url_for('main.index'))
+    
+    question_type = q.get('question_type', q['type'])
 
     next_qid = None
     result_msg = None
     user_answer_str = ""
+    fill_user_answers = []
+    result_correct = None
     
     conn = get_db()
     c = conn.cursor()
@@ -419,11 +456,13 @@ def show_sequential_question(qid):
     
     if request.method == 'POST':
         user_answer = request.form.getlist('answer')
-        user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
+        user_answer_str = serialize_user_answer(question_type, user_answer)
+        if question_type == '填空题':
+            fill_user_answers = parse_fill_answers(user_answer_str)
 
         # 使用新的验证函数
-        question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
         correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
+        result_correct = bool(correct)
         
         c.execute('INSERT INTO history (user_id, question_id, question_bank_id, user_answer, correct) VALUES (?,?,?,?,?)',
                   (user_id, qid, question_bank_id, user_answer_str, correct))
@@ -482,9 +521,11 @@ def show_sequential_question(qid):
         next_qid=next_qid,
         sequential_mode=True,
         user_answer=user_answer_str,
+        fill_user_answers=fill_user_answers,
         answered=answered,
         total=total,
         is_favorite=is_fav,
+        result_correct=result_correct,
         ai_context=build_ai_context(q, user_answer_str, bool(result_msg), has_ai_provider)
     )
 
@@ -581,6 +622,7 @@ def submit_timed_mode():
         return redirect(url_for('main.index'))
     
     question_ids = json.loads(exam['question_ids'])
+    question_bank_id = exam['question_bank_id'] if exam else get_active_question_bank_id(user_id)
     correct_count = 0
     total = len(question_ids)
     
@@ -588,10 +630,10 @@ def submit_timed_mode():
         user_answer = request.form.getlist(f'answer_{qid}')
         q = fetch_question(qid, question_bank_id)
         if not q: continue
-        user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
+        question_type = q.get('question_type', q['type'])
+        user_answer_str = serialize_user_answer(question_type, user_answer)
 
         # 使用新的验证函数
-        question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
         correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
         if correct: correct_count += 1
         c.execute('INSERT INTO history (user_id, question_id, question_bank_id, user_answer, correct) VALUES (?,?,?,?,?)',
@@ -684,6 +726,7 @@ def submit_exam():
         return jsonify({"success": False, "msg": "无法找到考试"}), 404
     
     question_ids = json.loads(exam['question_ids'])
+    question_bank_id = exam['question_bank_id'] if exam else get_active_question_bank_id(user_id)
     correct_count = 0
     total = len(question_ids)
     question_results = []
@@ -692,10 +735,10 @@ def submit_exam():
         user_answer = request.form.getlist(f'answer_{qid}')
         q = fetch_question(qid, question_bank_id)
         if not q: continue
-        user_answer_str = "".join(user_answer)  # 不再排序，因为不同题型处理方式不同
+        question_type = q.get('question_type', q['type'])
+        user_answer_str = serialize_user_answer(question_type, user_answer)
 
         # 使用新的验证函数
-        question_type = q.get('question_type', q['type'])  # 优先使用新的 question_type 字段
         correct = validate_answer_by_type(question_type, user_answer_str, q['answer'])
         if correct: correct_count += 1
         
