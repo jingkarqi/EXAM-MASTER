@@ -53,8 +53,10 @@
         <!-- 用户操作 -->
         <div class="nav-right">
             <a href="{{ url_for('user.personal_center') }}" class="nav-my-link{% if request.path == url_for('user.personal_center') %} active{% endif %}">
-                <i class="fas fa-user-circle" aria-hidden="true"></i>
-                <span class="nav-my-label"> 我的 </span>
+                <div class="nav-my-avatar">
+                    <i class="fas fa-user" aria-hidden="true"></i>
+                </div>
+                <span class="nav-my-label">我的</span>
             </a>
         </div>
     </nav>

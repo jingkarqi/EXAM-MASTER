@@ -119,31 +119,51 @@ body {
 
 .nav-my-link {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.6rem 1.2rem;
-  border-radius: var(--border-radius);
-  background-color: var(--primary-color);
-  color: white;
   text-decoration: none;
-  font-weight: 500;
+  color: var(--gray-700);
+  font-weight: 600;
+  gap: 0.4rem;
   transition: var(--transition);
-  box-shadow: 0 4px 10px rgba(67, 97, 238, 0.25);
 }
 
-.nav-my-link:hover {
-  background-color: var(--primary-hover);
-  transform: translateY(-2px);
+.nav-my-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 18px rgba(67, 97, 238, 0.25);
+  transition: var(--transition);
 }
 
-.nav-my-link.active {
+.nav-my-avatar i {
+  font-size: 1.15rem;
+}
+
+.nav-my-link:hover .nav-my-avatar {
   background-color: var(--primary-hover);
-  box-shadow: 0 6px 16px rgba(67, 97, 238, 0.3);
+  transform: translateY(-1px) scale(1.03);
+  box-shadow: 0 10px 22px rgba(67, 97, 238, 0.32);
+}
+
+.nav-my-link.active .nav-my-avatar {
+  background-color: var(--primary-hover);
+  box-shadow: 0 12px 24px rgba(67, 97, 238, 0.35);
 }
 
 .nav-my-label {
-  margin-left: 0.4rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--gray-700);
+}
+
+.nav-my-link.active .nav-my-label,
+.nav-my-link:hover .nav-my-label {
+  color: var(--primary-color);
 }
 
 .menu-toggle {
@@ -293,7 +313,10 @@ input[type="radio"] {
 
 /* ====== 按钮样式 ====== */
 .btn {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   font-weight: 500;
   text-align: center;
   white-space: nowrap;
@@ -313,6 +336,10 @@ input[type="radio"] {
   overflow: hidden;
   /* 确保移动端触摸区域足够大 */
   min-height: 2.75rem;
+}
+
+.btn i {
+  line-height: 1;
 }
 
 /* 添加触摸反馈效果 */
@@ -1354,31 +1381,17 @@ input[type="radio"] {
   }
   
   .nav-right .nav-my-link {
-    width: 42px;
-    height: 42px;
-    padding: 0;
-    border-radius: 50%;
-    justify-content: center;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(67, 97, 238, 0.3);
-    position: relative;
+    gap: 0.3rem;
   }
   
-  .nav-right .nav-my-link i {
-    margin: 0;
-    font-size: 1.15rem;
+  .nav-right .nav-my-avatar {
+    width: 44px;
+    height: 44px;
+    box-shadow: 0 4px 12px rgba(67, 97, 238, 0.28);
   }
   
-  .nav-my-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
+  .nav-right .nav-my-label {
+    font-size: 0.75rem;
   }
   
   .question-actions {
@@ -1596,9 +1609,13 @@ input[type="radio"] {
     font-size: 1.35rem;
   }
   
-  .nav-right .nav-my-link {
+  .nav-right .nav-my-avatar {
     width: 38px;
     height: 38px;
+  }
+  
+  .nav-right .nav-my-label {
+    font-size: 0.7rem;
   }
 }
 
