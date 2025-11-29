@@ -2495,6 +2495,260 @@ input[type="radio"] {
   line-height: 1.6;
 }
 
+#ai-aurora-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(1.03);
+  transition:
+    opacity 0.85s cubic-bezier(0.22, 0.61, 0.36, 1),
+    transform 1.1s ease-out,
+    filter 0.85s ease-out;
+  z-index: 1250;
+  overflow: hidden;
+  --ai-aurora-overlay-bg: radial-gradient(circle at 15% 15%, rgba(76, 201, 240, 0.12), transparent 45%),
+                          radial-gradient(circle at 72% 20%, rgba(236, 72, 153, 0.08), transparent 52%),
+                          radial-gradient(circle at 35% 78%, rgba(255, 255, 255, 0.08), transparent 60%);
+  --ai-aurora-overlay-blur: 8px;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+#ai-aurora-overlay.active {
+  opacity: 1;
+  transform: scale(1);
+  background: var(--ai-aurora-overlay-bg);
+  backdrop-filter: blur(var(--ai-aurora-overlay-blur));
+}
+
+#ai-aurora-overlay.pulsing {
+  opacity: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+
+#ai-aurora-overlay.exiting {
+  opacity: 0;
+  transform: scale(1.01);
+  background: var(--ai-aurora-overlay-bg);
+  backdrop-filter: blur(calc(var(--ai-aurora-overlay-blur) * 0.5));
+  filter: saturate(0.85);
+}
+
+#ai-aurora-overlay.exiting .ai-aurora__layer,
+#ai-aurora-overlay.exiting .ai-aurora__edge {
+  opacity: 0;
+  transition-duration: 0.8s;
+  filter: blur(calc(var(--aurora-blur, 60px) * 0.7));
+}
+
+#ai-aurora-pulse-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1249;
+}
+
+#ai-aurora-overlay .ai-aurora__layer,
+#ai-aurora-overlay .ai-aurora__edge {
+  opacity: 0;
+  transition: opacity 0.65s ease-out, filter 0.65s ease-out;
+}
+
+#ai-aurora-overlay.active .ai-aurora__layer,
+#ai-aurora-overlay.active .ai-aurora__edge {
+  opacity: 1;
+  transition-delay: 0.12s;
+}
+
+#ai-aurora-overlay.pulsing .ai-aurora__layer,
+#ai-aurora-overlay.pulsing .ai-aurora__edge {
+  opacity: 0;
+}
+
+#ai-aurora-overlay .ai-aurora__layer {
+  position: absolute;
+  width: 170%;
+  height: 170%;
+  top: -35%;
+  left: -35%;
+  background: radial-gradient(circle at 20% 20%, rgba(76, 201, 240, 0.45), transparent 60%),
+              radial-gradient(circle at 80% 0%, rgba(67, 97, 238, 0.38), transparent 55%),
+              radial-gradient(circle at 10% 80%, rgba(46, 196, 182, 0.35), transparent 55%);
+  --aurora-blur: 70px;
+  filter: blur(var(--aurora-blur)) hue-rotate(0deg);
+  opacity: 0;
+  animation: aiAuroraDrift 9s linear infinite, aiAuroraGlow 0.9s ease forwards, aiAuroraHueShift 14s ease-in-out infinite;
+  mix-blend-mode: screen;
+}
+
+#ai-aurora-overlay .ai-aurora__layer:nth-child(2) {
+  --aurora-blur: 80px;
+  animation-duration: 12s, 1.05s, 16s;
+  animation-direction: reverse, normal, alternate;
+  opacity: 0;
+  mix-blend-mode: color-dodge;
+  filter: blur(var(--aurora-blur)) hue-rotate(45deg);
+}
+
+#ai-aurora-overlay .ai-aurora__layer:nth-child(3) {
+  --aurora-blur: 95px;
+  animation-duration: 16s, 1.15s, 18s;
+  opacity: 0;
+  filter: blur(var(--aurora-blur)) hue-rotate(120deg);
+  mix-blend-mode: soft-light;
+}
+
+.ai-aurora__pulse {
+  position: absolute;
+  top: var(--pulse-y, 50%);
+  left: var(--pulse-x, 50%);
+  width: 25vmax;
+  height: 25vmax;
+  transform: translate(-50%, -50%) scale(0.2);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.95) 0%, rgba(76, 201, 240, 0.6) 35%, rgba(236, 72, 153, 0.3) 60%, rgba(236, 72, 153, 0) 70%);
+  filter: blur(10px);
+  opacity: 0.9;
+  animation: aiAuroraPulse 1.25s ease-out forwards;
+  pointer-events: none;
+  mix-blend-mode: normal;
+  z-index: 1;
+  will-change: transform, opacity;
+}
+
+.ai-aurora__edge {
+  position: absolute;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(76, 201, 240, 0.8), rgba(236, 72, 153, 0.75), rgba(255, 196, 0, 0.7), rgba(76, 201, 240, 0.8));
+  background-size: 500% 100%;
+  filter: blur(1.5px);
+  opacity: 0.85;
+  mix-blend-mode: screen;
+  animation: aiAuroraEdgeFlow 4s ease-in-out infinite;
+  box-shadow: 0 0 32px rgba(76, 201, 240, 0.35), 0 0 70px rgba(236, 72, 153, 0.35);
+}
+
+.ai-aurora__edge::after {
+  content: '';
+  position: absolute;
+  inset: -30%;
+  background: inherit;
+  filter: blur(12px);
+  opacity: 0.85;
+  z-index: -1;
+}
+
+.ai-aurora__edge--top,
+.ai-aurora__edge--bottom {
+  left: 0;
+  width: 100%;
+  height: 8px;
+}
+
+.ai-aurora__edge--top {
+  top: 0;
+}
+
+.ai-aurora__edge--bottom {
+  bottom: 0;
+  animation-direction: reverse;
+}
+
+.ai-aurora__edge--left,
+.ai-aurora__edge--right {
+  top: 0;
+  height: 100%;
+  width: 8px;
+  background: linear-gradient(180deg, rgba(76, 201, 240, 0.75), rgba(236, 72, 153, 0.72), rgba(255, 196, 0, 0.65), rgba(76, 201, 240, 0.75));
+  background-size: 100% 500%;
+}
+
+.ai-aurora__edge--left {
+  left: 0;
+  animation-duration: 5s;
+  box-shadow: 12px 0 30px rgba(236, 72, 153, 0.35);
+}
+
+.ai-aurora__edge--right {
+  right: 0;
+  animation-direction: reverse;
+  animation-duration: 5.8s;
+  box-shadow: -12px 0 30px rgba(255, 196, 0, 0.35);
+}
+
+@keyframes aiAuroraDrift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-5%, -8%, 0) scale(1.05) rotate(2deg);
+  }
+  100% {
+    transform: translate3d(5%, 8%, 0) scale(0.98) rotate(-2deg);
+  }
+}
+
+@keyframes aiAuroraGlow {
+  0% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+  60% {
+    opacity: 0.42;
+  }
+  100% {
+    opacity: 0.42;
+    transform: scale(1);
+  }
+}
+
+@keyframes aiAuroraPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0.9;
+  }
+  60% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8);
+    opacity: 0;
+  }
+}
+
+@keyframes aiAuroraHueShift {
+  0% {
+    filter: blur(var(--aurora-blur)) hue-rotate(0deg);
+  }
+  40% {
+    filter: blur(var(--aurora-blur)) hue-rotate(120deg);
+  }
+  70% {
+    filter: blur(var(--aurora-blur)) hue-rotate(220deg);
+  }
+  100% {
+    filter: blur(var(--aurora-blur)) hue-rotate(360deg);
+  }
+}
+
+@keyframes aiAuroraEdgeFlow {
+  0% {
+    background-position: 0% 50%;
+    opacity: 0.55;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 0.85;
+  }
+  100% {
+    background-position: 0% 50%;
+    opacity: 0.55;
+  }
+}
+
 .ai-error {
   margin-top: 0.75rem;
   color: var(--danger-color);
